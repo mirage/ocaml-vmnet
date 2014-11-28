@@ -1,0 +1,34 @@
+OASISFormat: 0.4
+Name: vmnet
+Version: 1.0.0
+Synopsis: Bindings to the MacOS X vmnet bridging framework
+Authors: [
+  "Anil Madhavapeddy <anil@recoil.org" ]
+License: ISC
+Plugins: META (0.4), DevFiles (0.4)
+BuildTools: ocamlbuild
+
+Library vmnet
+  Path: lib
+  Modules: Vmnet
+  BuildDepends: bigarray, unix, cstruct.unix, cstruct.syntax, sexplib, sexplib.syntax 
+  XMETARequires: bigarray, unix, cstruct.unix, sexplib
+  CSources: vmnet_stubs.c
+  CCOpt: -O2 -g -Wall
+  CCLib: -framework vmnet
+
+Document api
+  Title: Documentation and API reference
+  Type: ocamlbuild (0.3)
+  BuildTools+: ocamldoc
+  XOCamlbuildLibraries: vmnet
+  XOcamlbuildPath: lib
+  Install: true
+
+Executable vmnet_listen
+  Path:               lib_test
+  MainIs:             vmnet_listen.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       vmnet

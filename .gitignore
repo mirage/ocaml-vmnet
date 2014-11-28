@@ -1,3 +1,7 @@
+*.native
+*.byte
+setup.data
+setup.log
 *.cmx
 *.cma
 *.cmo

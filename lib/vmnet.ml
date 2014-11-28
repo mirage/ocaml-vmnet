@@ -106,16 +106,3 @@ let write {iface;_} c =
   |> function
   | len when len > 0 -> ()
   | err -> raise (Error (error_of_int (err * (-1))))
-
-(* TODO: remove inline test *)
-let _ = 
-  print_endline "init";
-  let t = init () in
-  let dump () = 
-    read t (Cstruct.create 4096)
-    |> Cstruct.hexdump;
-  in 
-  set_event_handler t dump;
-  Unix.sleep 10;
-  print_endline "end init"
-
