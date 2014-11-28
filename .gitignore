@@ -1,0 +1,11 @@
+*.cmx
+*.cma
+*.cmo
+*.o
+*.a
+*.cmxa
+*.cmi
+_build
+a.out
+*.swp
+*.dSYM/
