@@ -33,8 +33,8 @@
 #include <vmnet/vmnet.h>
 #include <pthread.h>
 
-static struct custom_operations interface_ref_ops = {
-  "org.openmirage.vmnet.interface_ref",
+static struct custom_operations vmnet_state_ops = {
+  "org.openmirage.vmnet.vmnet_state",
   custom_finalize_default,
   custom_compare_default,
   custom_hash_default,
@@ -42,20 +42,27 @@ static struct custom_operations interface_ref_ops = {
   custom_deserialize_default
 };
 
-#define Interface_ref_val(v) (*((interface_ref *) Data_custom_val(v)))
+struct vmnet_state {
+  interface_ref iref;
+  pthread_mutex_t vmm;
+  pthread_cond_t vmc;
+};
+#define Vmnet_state_val(v) (*((struct vmnet_state **) Data_custom_val(v)))
 
 static value
-alloc_interface_ref(interface_ref i)
+alloc_vmnet_state(interface_ref i)
 {
-  value v = alloc_custom(&interface_ref_ops, sizeof(interface_ref *), 0, 1);
-  Interface_ref_val(v) = i;
+  value v = alloc_custom(&vmnet_state_ops, sizeof(struct vmnet_state *), 0, 1);
+  struct vmnet_state *vms = malloc(sizeof(struct vmnet_state));
+  if (!vms)
+     caml_raise_out_of_memory();
+  vms->iref = i;
+  pthread_mutex_init(&vms->vmm, NULL);
+  pthread_cond_init(&vms->vmc, NULL);
+  Vmnet_state_val(v) = vms;
   return v;
 }
 
-pthread_mutex_t vmm = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t vmc = PTHREAD_COND_INITIALIZER;
-
-#define register_thread() do { printf("register: %p %d\n", pthread_self(), caml_c_thread_register()); } while (0);
 CAMLprim value
 caml_init_vmnet(value v_mode)
 {
@@ -91,7 +98,7 @@ caml_init_vmnet(value v_mode)
   dispatch_release(if_create_q);
   if (iface == NULL)
      caml_failwith("failed to initialise interface");
-  v_iface_ref = alloc_interface_ref(iface);
+  v_iface_ref = alloc_vmnet_state(iface);
   v_mac = caml_alloc_string(6);
   memcpy(String_val(v_mac),mac,6);
   v_res = caml_alloc_tuple(4);
@@ -106,16 +113,16 @@ CAMLprim value
 caml_set_event_handler(value v_iref)
 {
   CAMLparam1(v_iref);
-  interface_ref iface = Interface_ref_val(v_iref);
+  struct vmnet_state *vms = Vmnet_state_val(v_iref);
+  interface_ref iface = vms->iref;
   /* TODO: release queue. */
   dispatch_queue_t iface_q = dispatch_queue_create("org.openmirage.vmnet.iface_q", 0);
-  dispatch_sync(iface_q, ^{ register_thread(); });
   vmnet_interface_set_event_callback(iface, VMNET_INTERFACE_PACKETS_AVAILABLE, iface_q,
     ^(interface_event_t event_id, xpc_object_t event)
     { 
-      pthread_mutex_lock(&vmm);
-      pthread_cond_broadcast(&vmc);
-      pthread_mutex_unlock(&vmm);
+      pthread_mutex_lock(&vms->vmm);
+      pthread_cond_broadcast(&vms->vmc);
+      pthread_mutex_unlock(&vms->vmm);
     });
   CAMLreturn(Val_unit);
 }
@@ -124,10 +131,11 @@ CAMLprim value
 caml_wait_for_event(value v_iref)
 {
   CAMLparam1(v_iref);
+  struct vmnet_state *vms = Vmnet_state_val(v_iref);
   caml_release_runtime_system();
-  pthread_mutex_lock(&vmm);
-  pthread_cond_wait(&vmc, &vmm);
-  pthread_mutex_unlock(&vmm);
+  pthread_mutex_lock(&vms->vmm);
+  pthread_cond_wait(&vms->vmc, &vms->vmm);
+  pthread_mutex_unlock(&vms->vmm);
   caml_acquire_runtime_system();
   CAMLreturn(Val_unit);
 }
@@ -136,7 +144,8 @@ CAMLprim value
 caml_vmnet_read(value v_iref, value v_ba, value v_ba_off, value v_ba_len)
 {
   CAMLparam4(v_iref, v_ba, v_ba_off, v_ba_len);
-  interface_ref iface = Interface_ref_val(v_iref);
+  struct vmnet_state *vms = Vmnet_state_val(v_iref);
+  interface_ref iface = vms->iref;
   struct iovec iov;
   iov.iov_base = Caml_ba_data_val(v_ba) + (Int_val(v_ba_off));
   iov.iov_len = Int_val(v_ba_len);
@@ -159,7 +168,8 @@ CAMLprim value
 caml_vmnet_write(value v_iref, value v_ba, value v_ba_off, value v_ba_len)
 {
   CAMLparam4(v_iref, v_ba, v_ba_off, v_ba_len);
-  interface_ref iface = Interface_ref_val(v_iref);
+  struct vmnet_state *vms = Vmnet_state_val(v_iref);
+  interface_ref iface = vms->iref;
   struct iovec iov;
   iov.iov_base = Caml_ba_data_val(v_ba) + (Int_val(v_ba_off));
   iov.iov_len = Int_val(v_ba_len);
