@@ -25,11 +25,13 @@
 #include <caml/fail.h>
 #include <caml/callback.h>
 #include <caml/bigarray.h>
+#include <caml/threads.h>
 
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <dispatch/dispatch.h>
 #include <vmnet/vmnet.h>
+#include <pthread.h>
 
 static struct custom_operations interface_ref_ops = {
   "org.openmirage.vmnet.interface_ref",
@@ -50,29 +52,39 @@ alloc_interface_ref(interface_ref i)
   return v;
 }
 
+pthread_mutex_t vmm = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t vmc = PTHREAD_COND_INITIALIZER;
+
+#define register_thread() do { printf("register: %p %d\n", pthread_self(), caml_c_thread_register()); } while (0);
 CAMLprim value
 caml_init_vmnet(value v_mode)
 {
   CAMLparam1(v_mode);
-  CAMLlocal1(v_iface_ref);
+  CAMLlocal3(v_iface_ref,v_res,v_mac);
   xpc_object_t interface_desc = xpc_dictionary_create(NULL, NULL, 0);
   xpc_dictionary_set_uint64(interface_desc, vmnet_operation_mode_key, Int_val(v_mode));
   uuid_t uuid;
   uuid_generate_random(uuid);
   xpc_dictionary_set_uuid(interface_desc, vmnet_interface_id_key, uuid);
   __block interface_ref iface = NULL;
-  dispatch_queue_t if_create_q =
-    dispatch_queue_create("org.openmirage.vmnet.create", DISPATCH_QUEUE_SERIAL);
+  __block unsigned char *mac = malloc(6);
+  __block unsigned int mtu = 0;
+  __block unsigned int max_packet_size = 0;
+  dispatch_queue_t if_create_q = dispatch_queue_create("org.openmirage.vmnet.create", DISPATCH_QUEUE_SERIAL);
   dispatch_semaphore_t iface_created = dispatch_semaphore_create(0);
   iface = vmnet_start_interface(interface_desc, if_create_q,
     ^(vmnet_return_t status, xpc_object_t interface_param) { 
       printf("iface_handler status %d param %p\n", status, interface_param);
       if (!interface_param) return;
-      const char *m = xpc_dictionary_get_string(interface_param, vmnet_mac_address_key);
-      uint64_t mtu = xpc_dictionary_get_uint64(interface_param, vmnet_mtu_key);
-      uint64_t packet_size = xpc_dictionary_get_uint64(interface_param, vmnet_max_packet_size_key);
-      printf("mtu: %lld\npacket size: %lld\n", mtu, packet_size);
-      printf("mac: %02x:%02x:%02x:%02x:%02x:%02x\n", m[0], m[0], m[2], m[3], m[4], m[5]);
+      printf("mac desc: %s\n", xpc_copy_description(xpc_dictionary_get_value(interface_param, vmnet_mac_address_key)));
+      const char *macStr = xpc_dictionary_get_string(interface_param, vmnet_mac_address_key);
+      unsigned char lmac[6];
+      printf("macstr: %s macstr len: %d\n", macStr, strlen(macStr));
+      sscanf(macStr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &lmac[0], &lmac[1], &lmac[2], &lmac[3], &lmac[4], &lmac[5]);
+      memcpy(mac, lmac, 6);
+      mtu = xpc_dictionary_get_uint64(interface_param, vmnet_mtu_key);
+      max_packet_size = xpc_dictionary_get_uint64(interface_param, vmnet_max_packet_size_key);
+      printf("mtu: %u\npacket size: %u\n", mtu, max_packet_size);
       dispatch_semaphore_signal(iface_created);
     });
   dispatch_semaphore_wait(iface_created, DISPATCH_TIME_FOREVER);
@@ -80,23 +92,43 @@ caml_init_vmnet(value v_mode)
   if (iface == NULL)
      caml_failwith("failed to initialise interface");
   v_iface_ref = alloc_interface_ref(iface);
-  CAMLreturn(v_iface_ref);
+  v_mac = caml_alloc_string(6);
+  memcpy(String_val(v_mac),mac,6);
+  v_res = caml_alloc_tuple(4);
+  Field(v_res,0) = v_iface_ref;
+  Field(v_res,1) = v_mac;
+  Field(v_res,2) = Val_int(mtu);
+  Field(v_res,3) = Val_int(max_packet_size);
+  CAMLreturn(v_res);
 }
 
 CAMLprim value
-caml_set_event_handler(value v_iref, value v_callback_name)
+caml_set_event_handler(value v_iref)
 {
-  CAMLparam2(v_iref, v_callback_name);
+  CAMLparam1(v_iref);
   interface_ref iface = Interface_ref_val(v_iref);
-  value *v_cb = caml_named_value(String_val(v_callback_name));
-  if (v_cb == NULL)
-     caml_failwith("callback not registered");
   /* TODO: release queue. */
-  /* TODO: does name need to be unique? */
   dispatch_queue_t iface_q = dispatch_queue_create("org.openmirage.vmnet.iface_q", 0);
+  dispatch_sync(iface_q, ^{ register_thread(); });
   vmnet_interface_set_event_callback(iface, VMNET_INTERFACE_PACKETS_AVAILABLE, iface_q,
     ^(interface_event_t event_id, xpc_object_t event)
-    { caml_callback(*v_cb, Val_unit); });
+    { 
+      pthread_mutex_lock(&vmm);
+      pthread_cond_broadcast(&vmc);
+      pthread_mutex_unlock(&vmm);
+    });
+  CAMLreturn(Val_unit);
+}
+
+CAMLprim value
+caml_wait_for_event(value v_iref)
+{
+  CAMLparam1(v_iref);
+  caml_release_runtime_system();
+  pthread_mutex_lock(&vmm);
+  pthread_cond_wait(&vmc, &vmm);
+  pthread_mutex_unlock(&vmm);
+  caml_acquire_runtime_system();
   CAMLreturn(Val_unit);
 }
 
@@ -115,10 +147,12 @@ caml_vmnet_read(value v_iref, value v_ba, value v_ba_off, value v_ba_len)
   v.vm_flags = 0; /* TODO no clue what this is */
   int pktcnt = 1;
   vmnet_return_t res = vmnet_read(iface, &v, &pktcnt);
-  if (res == VMNET_SUCCESS) 
-    CAMLreturn(Val_int(v.vm_pkt_size));
-  else
+  if (res != VMNET_SUCCESS) 
     CAMLreturn(Val_int((-1)*res));
+  else if (pktcnt <= 0)
+    CAMLreturn(Val_int(0));
+  else
+    CAMLreturn(Val_int(v.vm_pkt_size));
 }
 
 CAMLprim value
@@ -141,4 +175,3 @@ caml_vmnet_write(value v_iref, value v_ba, value v_ba_off, value v_ba_len)
   else
     CAMLreturn(Val_int((-1)*res));
 }
-

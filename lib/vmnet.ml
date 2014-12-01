@@ -26,8 +26,16 @@ type netif = {
 module Raw = struct
   type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
-  external init : int -> interface_ref = "caml_init_vmnet"
-  external set_event_handler : interface_ref -> string -> unit = "caml_set_event_handler"
+  type t = {
+    iface: interface_ref;
+    mac: string;
+    mtu: int;
+    max_packet_size: int;
+  }
+
+  external init : int -> t = "caml_init_vmnet"
+  external set_event_handler : interface_ref -> unit = "caml_set_event_handler"
+  external wait_for_event : interface_ref -> unit = "caml_wait_for_event"
   external caml_vmnet_read : interface_ref -> buf -> int -> int -> int = "caml_vmnet_read"
   external caml_vmnet_write : interface_ref -> buf -> int -> int -> int = "caml_vmnet_write"
 
@@ -56,6 +64,7 @@ type error =
  | Unknown of int with sexp
 
 exception Error of error with sexp
+exception No_packets_waiting with sexp
 
 let error_of_int =
   function
@@ -71,33 +80,40 @@ let error_of_int =
 
 type mode =
   | Host_mode
-  | Shared_mode
+  | Shared_mode with sexp
 
 type t = {
-  iface: interface_ref;
+  iface: interface_ref sexp_opaque;
   name: string;
-}
+  mac: Macaddr.t;
+} with sexp_of
+
+let mac {mac} = mac
 
 let iface_num = ref 0
 
-let init ?(mode = Host_mode) () =
+let init ?(mode = Shared_mode) () =
   let mode =
     match mode with
     | Host_mode -> 1000
     | Shared_mode -> 1001
   in
-  let iface = Raw.init mode in
+  let t = Raw.init mode in
   let name = Printf.sprintf "vmnet%d" !iface_num in
   incr iface_num;
-  { iface; name }
+  let mac = Macaddr.of_bytes_exn t.Raw.mac in
+  { iface=t.Raw.iface; mac; name }
 
-let set_event_handler {iface; name} f =
-  Callback.register name f;
-  Raw.set_event_handler iface name
+let set_event_handler {iface; _} =
+  Raw.set_event_handler iface 
+
+let wait_for_event {iface; _} =
+  Raw.wait_for_event iface
 
 let read {iface;_} c =
-  Raw.caml_vmnet_read iface c.Cstruct.buffer c.Cstruct.off c.Cstruct.len
-  |> function
+  let r = Raw.caml_vmnet_read iface c.Cstruct.buffer c.Cstruct.off c.Cstruct.len in
+  match r with
+  | 0 -> raise No_packets_waiting
   | len when len > 0 -> Cstruct.set_len c len
   | err -> raise (Error (error_of_int (err * (-1))))
 

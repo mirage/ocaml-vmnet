@@ -21,6 +21,6 @@ let _ =
     Vmnet.read t (Cstruct.create 4096)
     |> Cstruct.hexdump;
   in
-  Vmnet.set_event_handler t dump;
+  Vmnet.set_event_handler t;
   Unix.sleep 10;
   print_endline "end init"

@@ -15,12 +15,12 @@
  *)
 
 (** *)
-type t
+type t with sexp_of
 
 (** *)
 type mode =
   | Host_mode
-  | Shared_mode
+  | Shared_mode with sexp
 
 (** *)
 type error =
@@ -38,10 +38,17 @@ type error =
 exception Error of error with sexp
 
 (** *)
-val init : ?mode:mode -> unit -> t
+exception No_packets_waiting with sexp
 
 (** *)
-val set_event_handler : t -> (unit -> unit) -> unit
+val init : ?mode:mode -> unit -> t
+
+val mac : t -> Macaddr.t
+
+(** *)
+val set_event_handler : t -> unit
+
+val wait_for_event : t -> unit
 
 (** *)
 val read : t -> Cstruct.t -> Cstruct.t
