@@ -14,17 +14,27 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-(** MacOS X userspace network bridging *)
+(** MacOS X userspace network bridging. *)
 
-(** *)
+(** [t] contains the interface state for one vmnet interface. *)
 type t with sexp_of
 
-(** *)
+(** [mode] controls the level of sharing exposed to the vmnet interface.
+
+    - {!Host_mode} lets the guest network interface communicate with other
+    guest network interfaces in the host mode and to the native host.
+    - {!Shared_mode} lets the guest network interface reach the Internet
+    using a network address translator.
+
+    Note that in MacOS X Yosemite, {!Host_mode} also provides a NAT to the
+    guest, but with the subnet and DNS options not set (so it has no way
+    to communicate externally but can still retrieve host-local network
+    configuration via DHCP). *)
 type mode =
   | Host_mode
   | Shared_mode with sexp
 
-(** *)
+(** [error] represents hard failures from the underlying vmnet functions. *)
 type error =
  | Failure
  | Mem_failure
@@ -36,30 +46,42 @@ type error =
  | Too_many_packets
  | Unknown of int with sexp
 
-(** *)
+(** [Error] can be raised by vmnet functions when hard errors are encountered. *)
 exception Error of error with sexp
 
-(** *)
+(** [No_packets_waiting] is raised when {!read} is called on an interface that
+   has no packets queued.  {!wait_for_event} can be used to block the client
+   until packets do arrive. *)
 exception No_packets_waiting with sexp
 
-(** *)
+(** [init ?mode] will initialise a fresh vmnet interface, defaulting to
+    {!Shared_mode} for the output. Raises {!Error} if something goes wrong. *)
 val init : ?mode:mode -> unit -> t
 
-(** *)
+(** [mac t] will return the MAC address bound to the guest network interface. *)
 val mac : t -> Macaddr.t
 
-(** *)
+(** [max_packet_size t] will return the maximum allowed packet buffer that can
+    be passed to {!write}.  Exceeding this will raise {!Packet_too_big} from
+    {!write}. *)
 val max_packet_size: t -> int
 
-(** *)
+(** [set_event_handler t] will initalise the internal thread state in the library
+    that listen for event notifications from the library.  The {!wait_for_event}
+    function should not be called until this {!set_event_handler} been called once. *)
 val set_event_handler : t -> unit
 
-(** *)
+(** [wait_for_event t] will block the current OCaml thread until an event
+    notification has been received on the [t] vmnet interface. *)
 val wait_for_event : t -> unit
 
-(** *)
+(** [read t buf] will read a network packet into the [buf] {!Cstruct.t} and
+   return a fresh subview that represents the packet with the correct length
+   and offset.  It will raise {!No_packets_waiting} if there is nothing to read. *)
 val read : t -> Cstruct.t -> Cstruct.t
 
-(** *)
+(** [write t buf] will transmit a network packet contained in [buf].  This will
+   normally not block, but the vmnet interface isnt clear on whether this might
+   happen. *)
 val write : t -> Cstruct.t -> unit
 

@@ -18,13 +18,27 @@ open Lwt
 open Sexplib.Conv
 
 type mode = Vmnet.mode = Host_mode | Shared_mode with sexp
-  
+
+type error = Vmnet.error =
+ | Failure
+ | Mem_failure
+ | Invalid_argument
+ | Setup_incomplete
+ | Invalid_access
+ | Packet_too_big
+ | Buffer_exhausted
+ | Too_many_packets
+ | Unknown of int with sexp
+
+exception Error of error with sexp 
+
 type t = {
   dev: Vmnet.t;
   waiters: unit Lwt.u Lwt_sequence.t sexp_opaque;
 } with sexp_of
 
 let mac {dev} = Vmnet.mac dev
+let max_packet_size {dev} = Vmnet.max_packet_size dev
 
 let wakeup_for_read t =
   match Lwt_sequence.take_opt_l t.waiters with
@@ -47,13 +61,13 @@ let init ?(mode = Shared_mode) () =
     let t = { dev; waiters } in
     let _ = wait_for_event t in
     return t
-  with Vmnet.Error _ as e -> fail e
+  with Vmnet.Error err -> fail (Error err)
 
 let rec read t c =
   try_lwt
     return (Vmnet.read t.dev c)
   with
-  | Vmnet.Error _ as err -> fail err
+  | Vmnet.Error err -> fail (Error err)
   | Vmnet.No_packets_waiting ->
       let th, u : (unit Lwt.t * unit Lwt.u) = Lwt.task () in
       let node = Lwt_sequence.add_r u t.waiters in
@@ -62,5 +76,8 @@ let rec read t c =
       read t c
 
 let write t c =
-  Vmnet.write t.dev c;
-  return_unit
+  try
+    Vmnet.write t.dev c;
+    return_unit
+  with
+  | Vmnet.Error err -> fail (Error err)
