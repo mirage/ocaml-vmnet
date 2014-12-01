@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <err.h>
 
 #include <caml/alloc.h>
 #include <caml/memory.h>
@@ -75,23 +76,22 @@ caml_init_vmnet(value v_mode)
   xpc_dictionary_set_uuid(interface_desc, vmnet_interface_id_key, uuid);
   __block interface_ref iface = NULL;
   __block unsigned char *mac = malloc(6);
+  if (!mac) caml_raise_out_of_memory ();
   __block unsigned int mtu = 0;
   __block unsigned int max_packet_size = 0;
   dispatch_queue_t if_create_q = dispatch_queue_create("org.openmirage.vmnet.create", DISPATCH_QUEUE_SERIAL);
   dispatch_semaphore_t iface_created = dispatch_semaphore_create(0);
   iface = vmnet_start_interface(interface_desc, if_create_q,
     ^(vmnet_return_t status, xpc_object_t interface_param) { 
-      printf("iface_handler status %d param %p\n", status, interface_param);
       if (!interface_param) return;
-      printf("mac desc: %s\n", xpc_copy_description(xpc_dictionary_get_value(interface_param, vmnet_mac_address_key)));
+      //printf("mac desc: %s\n", xpc_copy_description(xpc_dictionary_get_value(interface_param, vmnet_mac_address_key)));
       const char *macStr = xpc_dictionary_get_string(interface_param, vmnet_mac_address_key);
       unsigned char lmac[6];
-      printf("macstr: %s macstr len: %d\n", macStr, strlen(macStr));
-      sscanf(macStr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &lmac[0], &lmac[1], &lmac[2], &lmac[3], &lmac[4], &lmac[5]);
+      if (sscanf(macStr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &lmac[0], &lmac[1], &lmac[2], &lmac[3], &lmac[4], &lmac[5]) != 6)
+        errx(1, "Unexpected MAC address received from vmnet");
       memcpy(mac, lmac, 6);
       mtu = xpc_dictionary_get_uint64(interface_param, vmnet_mtu_key);
       max_packet_size = xpc_dictionary_get_uint64(interface_param, vmnet_max_packet_size_key);
-      printf("mtu: %u\npacket size: %u\n", mtu, max_packet_size);
       dispatch_semaphore_signal(iface_created);
     });
   dispatch_semaphore_wait(iface_created, DISPATCH_TIME_FOREVER);
