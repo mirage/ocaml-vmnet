@@ -22,5 +22,6 @@ let _ =
     |> Cstruct.hexdump;
   in
   Vmnet.set_event_handler t;
+  dump ();
   Unix.sleep 10;
   print_endline "end init"
