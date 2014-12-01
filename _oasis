@@ -2,8 +2,7 @@ OASISFormat: 0.4
 Name: vmnet
 Version: 1.0.0
 Synopsis: Bindings to the MacOS X vmnet bridging framework
-Authors: [
-  "Anil Madhavapeddy <anil@recoil.org" ]
+Authors: [ "Anil Madhavapeddy <anil@recoil.org" ]
 License: ISC
 Plugins: META (0.4), DevFiles (0.4)
 BuildTools: ocamlbuild
@@ -11,17 +10,25 @@ BuildTools: ocamlbuild
 Library vmnet
   Path: lib
   Modules: Vmnet
-  BuildDepends: bigarray, unix, cstruct.unix, cstruct.syntax, sexplib, sexplib.syntax 
-  XMETARequires: bigarray, unix, cstruct.unix, sexplib
+  BuildDepends: bigarray, unix, cstruct.unix, cstruct.syntax, sexplib, sexplib.syntax, ipaddr, threads
+  XMETARequires: bigarray, unix, cstruct.unix, sexplib, ipaddr, threads
   CSources: vmnet_stubs.c
   CCOpt: -O2 -g -Wall
   CCLib: -framework vmnet
 
-Document api
+Library "lwt-vmnet"
+  Path: lib
+  Modules: Lwt_vmnet
+  BuildDepends: lwt.unix,vmnet,lwt.syntax,lwt.preemptive
+  XMETARequires: lwt.unix,vmnet,lwt.preemptive
+  FindlibParent: vmnet
+  FindlibName: lwt
+
+Document "vmnet-api"
   Title: Documentation and API reference
   Type: ocamlbuild (0.3)
   BuildTools+: ocamldoc
-  XOCamlbuildLibraries: vmnet
+  XOCamlbuildLibraries: vmnet, vmnet.lwt
   XOcamlbuildPath: lib
   Install: true
 
