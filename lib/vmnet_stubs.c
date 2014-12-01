@@ -110,10 +110,10 @@ caml_init_vmnet(value v_mode)
 }
 
 CAMLprim value
-caml_set_event_handler(value v_iref)
+caml_set_event_handler(value v_vmnet)
 {
-  CAMLparam1(v_iref);
-  struct vmnet_state *vms = Vmnet_state_val(v_iref);
+  CAMLparam1(v_vmnet);
+  struct vmnet_state *vms = Vmnet_state_val(v_vmnet);
   interface_ref iface = vms->iref;
   /* TODO: release queue. */
   dispatch_queue_t iface_q = dispatch_queue_create("org.openmirage.vmnet.iface_q", 0);
@@ -128,10 +128,10 @@ caml_set_event_handler(value v_iref)
 }
 
 CAMLprim value
-caml_wait_for_event(value v_iref)
+caml_wait_for_event(value v_vmnet)
 {
-  CAMLparam1(v_iref);
-  struct vmnet_state *vms = Vmnet_state_val(v_iref);
+  CAMLparam1(v_vmnet);
+  struct vmnet_state *vms = Vmnet_state_val(v_vmnet);
   caml_release_runtime_system();
   pthread_mutex_lock(&vms->vmm);
   pthread_cond_wait(&vms->vmc, &vms->vmm);
@@ -141,10 +141,10 @@ caml_wait_for_event(value v_iref)
 }
 
 CAMLprim value
-caml_vmnet_read(value v_iref, value v_ba, value v_ba_off, value v_ba_len)
+caml_vmnet_read(value v_vmnet, value v_ba, value v_ba_off, value v_ba_len)
 {
-  CAMLparam4(v_iref, v_ba, v_ba_off, v_ba_len);
-  struct vmnet_state *vms = Vmnet_state_val(v_iref);
+  CAMLparam4(v_vmnet, v_ba, v_ba_off, v_ba_len);
+  struct vmnet_state *vms = Vmnet_state_val(v_vmnet);
   interface_ref iface = vms->iref;
   struct iovec iov;
   iov.iov_base = Caml_ba_data_val(v_ba) + (Int_val(v_ba_off));
@@ -165,10 +165,10 @@ caml_vmnet_read(value v_iref, value v_ba, value v_ba_off, value v_ba_len)
 }
 
 CAMLprim value
-caml_vmnet_write(value v_iref, value v_ba, value v_ba_off, value v_ba_len)
+caml_vmnet_write(value v_vmnet, value v_ba, value v_ba_off, value v_ba_len)
 {
-  CAMLparam4(v_iref, v_ba, v_ba_off, v_ba_len);
-  struct vmnet_state *vms = Vmnet_state_val(v_iref);
+  CAMLparam4(v_vmnet, v_ba, v_ba_off, v_ba_len);
+  struct vmnet_state *vms = Vmnet_state_val(v_vmnet);
   interface_ref iface = vms->iref;
   struct iovec iov;
   iov.iov_base = Caml_ba_data_val(v_ba) + (Int_val(v_ba_off));
