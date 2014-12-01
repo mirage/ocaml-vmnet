@@ -14,6 +14,8 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+(** MacOS X userspace network bridging *)
+
 (** *)
 type t with sexp_of
 
@@ -43,11 +45,16 @@ exception No_packets_waiting with sexp
 (** *)
 val init : ?mode:mode -> unit -> t
 
+(** *)
 val mac : t -> Macaddr.t
+
+(** *)
+val max_packet_size: t -> int
 
 (** *)
 val set_event_handler : t -> unit
 
+(** *)
 val wait_for_event : t -> unit
 
 (** *)

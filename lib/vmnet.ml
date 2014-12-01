@@ -18,11 +18,6 @@ open Sexplib.Conv
 
 type interface_ref
 
-type netif = {
-  mtu: int;
-  max_packet_size: int;
-}
-
 module Raw = struct
   type buf = (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
@@ -86,9 +81,11 @@ type t = {
   iface: interface_ref sexp_opaque;
   name: string;
   mac: Macaddr.t;
+  max_packet_size: int;
 } with sexp_of
 
 let mac {mac} = mac
+let max_packet_size {max_packet_size} = max_packet_size
 
 let iface_num = ref 0
 
@@ -102,7 +99,8 @@ let init ?(mode = Shared_mode) () =
   let name = Printf.sprintf "vmnet%d" !iface_num in
   incr iface_num;
   let mac = Macaddr.of_bytes_exn t.Raw.mac in
-  { iface=t.Raw.iface; mac; name }
+  let max_packet_size = t.Raw.max_packet_size in
+  { iface=t.Raw.iface; mac; max_packet_size; name }
 
 let set_event_handler {iface; _} =
   Raw.set_event_handler iface 
