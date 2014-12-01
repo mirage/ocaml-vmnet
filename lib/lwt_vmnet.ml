@@ -40,7 +40,7 @@ let wait_for_event t =
     loop ()
   in loop ()
    
-let init ?(mode = Host_mode) () =
+let init ?(mode = Shared_mode) () =
   try_lwt 
     let dev = Vmnet.init ~mode () in
     let waiters = Lwt_sequence.create () in
