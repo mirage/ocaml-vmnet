@@ -45,6 +45,9 @@ module Raw = struct
     VMNET_BUFFER_EXHAUSTED = 1007;
     VMNET_TOO_MANY_PACKETS = 1008
   } as uint32_t(sexp)
+
+  exception Return_code of int
+  let _ = Callback.register_exception "vmnet_raw_return" (Return_code 0)
 end
 
 type error =
@@ -95,12 +98,15 @@ let init ?(mode = Shared_mode) () =
     | Host_mode -> 1000
     | Shared_mode -> 1001
   in
-  let t = Raw.init mode in
-  let name = Printf.sprintf "vmnet%d" !iface_num in
-  incr iface_num;
-  let mac = Macaddr.of_bytes_exn t.Raw.mac in
-  let max_packet_size = t.Raw.max_packet_size in
-  { iface=t.Raw.iface; mac; max_packet_size; name }
+  try
+    let t = Raw.init mode in
+    let name = Printf.sprintf "vmnet%d" !iface_num in
+    incr iface_num;
+    let mac = Macaddr.of_bytes_exn t.Raw.mac in
+    let max_packet_size = t.Raw.max_packet_size in
+    { iface=t.Raw.iface; mac; max_packet_size; name }
+  with Raw.Return_code r ->
+    raise (Error (error_of_int r))
 
 let set_event_handler {iface; _} =
   Raw.set_event_handler iface 
