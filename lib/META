@@ -1,6 +1,6 @@
 # OASIS_START
-# DO NOT EDIT (digest: 06e2114856da46e11f851f24bd421a79)
-version = "1.0.0"
+# DO NOT EDIT (digest: 20ec04267346a2a4d75f7578fa987416)
+version = "1.0.1"
 description = "Bindings to the MacOS X vmnet bridging framework"
 requires = "bigarray unix cstruct.unix sexplib ipaddr threads"
 archive(byte) = "vmnet.cma"
@@ -9,7 +9,7 @@ archive(native) = "vmnet.cmxa"
 archive(native, plugin) = "vmnet.cmxs"
 exists_if = "vmnet.cma"
 package "lwt" (
- version = "1.0.0"
+ version = "1.0.1"
  description = "Bindings to the MacOS X vmnet bridging framework"
  requires = "lwt.unix vmnet lwt.preemptive"
  archive(byte) = "lwt-vmnet.cma"
