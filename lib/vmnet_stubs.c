@@ -75,6 +75,7 @@ caml_init_vmnet(value v_mode)
   uuid_generate_random(uuid);
   xpc_dictionary_set_uuid(interface_desc, vmnet_interface_id_key, uuid);
   __block interface_ref iface = NULL;
+  __block vmnet_return_t iface_status = 0;
   __block unsigned char *mac = malloc(6);
   if (!mac) caml_raise_out_of_memory ();
   __block unsigned int mtu = 0;
@@ -83,7 +84,11 @@ caml_init_vmnet(value v_mode)
   dispatch_semaphore_t iface_created = dispatch_semaphore_create(0);
   iface = vmnet_start_interface(interface_desc, if_create_q,
     ^(vmnet_return_t status, xpc_object_t interface_param) { 
-      if (!interface_param) return;
+      iface_status = status;
+      if (status != VMNET_SUCCESS || !interface_param) {
+         dispatch_semaphore_signal(iface_created);
+         return;
+      }
       //printf("mac desc: %s\n", xpc_copy_description(xpc_dictionary_get_value(interface_param, vmnet_mac_address_key)));
       const char *macStr = xpc_dictionary_get_string(interface_param, vmnet_mac_address_key);
       unsigned char lmac[6];
@@ -96,8 +101,12 @@ caml_init_vmnet(value v_mode)
     });
   dispatch_semaphore_wait(iface_created, DISPATCH_TIME_FOREVER);
   dispatch_release(if_create_q);
-  if (iface == NULL)
-     caml_failwith("failed to initialise interface");
+  if (iface == NULL || iface_status != VMNET_SUCCESS) {
+     value *v_exc = caml_named_value("vmnet_raw_return");
+     if (!v_exc)
+       caml_failwith("Vmnet.Error exception not registered");
+     caml_raise_with_arg(*v_exc, Val_int(iface_status));
+  }
   v_iface_ref = alloc_vmnet_state(iface);
   v_mac = caml_alloc_string(6);
   memcpy(String_val(v_mac),mac,6);
