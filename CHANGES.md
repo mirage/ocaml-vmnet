@@ -1,3 +1,6 @@
+1.0.2 (23/12/2015):
+* Add a test case for Vmnet write.
+
 1.0.1 (02/12/2014):
 * Raise the `Vmnet.Error` exception when interface init fails (#1, reported by @nojb)
 

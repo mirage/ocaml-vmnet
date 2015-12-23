@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2014 Anil Madhavapeddy <anil@recoil.org>
+ * Copyright (c) 2014-2015 Anil Madhavapeddy <anil@recoil.org>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,16 +15,12 @@
  *)
 
 let _ =
-  print_endline "init";
   let t = Vmnet.init () in
-  let dump () =
-    Vmnet.read t (Cstruct.create 4096)
-    |> Cstruct.hexdump;
-  in
+  let dump sz =
+    Printf.printf "write: %d\n%!" sz;
+    Vmnet.write t (Cstruct.create sz) in
   Vmnet.set_event_handler t;
-  dump ();
-  print_endline "read";
-  Unix.sleep 2;
-  Vmnet.write t (Cstruct.create 2);
-  Unix.sleep 10;
-  print_endline "end init"
+  dump 4096;
+  dump 128;
+  dump 12;
+  Unix.sleep 1
