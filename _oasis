@@ -39,3 +39,11 @@ Executable vmnet_listen
   CompiledObject:     best
   Install:            false
   BuildDepends:       vmnet
+
+Executable vmnet_write
+  Path:               lib_test
+  MainIs:             vmnet_write.ml
+  Custom:             true
+  CompiledObject:     best
+  Install:            false
+  BuildDepends:       vmnet
