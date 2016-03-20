@@ -1,3 +1,7 @@
+1.1.0 (20/3/2016)
+* Replace camlp4 with ppx
+* add LICENSE file
+
 1.0.2 (23/12/2015):
 * Add a test case for Vmnet write.
 
