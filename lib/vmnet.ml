@@ -34,17 +34,19 @@ module Raw = struct
   external caml_vmnet_read : interface_ref -> buf -> int -> int -> int = "caml_vmnet_read"
   external caml_vmnet_write : interface_ref -> buf -> int -> int -> int = "caml_vmnet_write"
 
-  cenum result {
-    VMNET_SUCCESS = 1000;
-    VMNET_FAILURE = 1001;
-    VMNET_MEM_FAILURE = 1002;
-    VMNET_INVALID_ARGUMENT = 1003;
-    VMNET_SETUP_INCOMPLETE = 1004;
-    VMNET_INVALID_ACCESS = 1005;
-    VMNET_PACKET_TOO_BIG = 1006;
-    VMNET_BUFFER_EXHAUSTED = 1007;
-    VMNET_TOO_MANY_PACKETS = 1008
-  } as uint32_t(sexp)
+  [%%cenum
+  type result =
+    | VMNET_SUCCESS          [@id 1000]
+    | VMNET_FAILURE          [@id 1001]
+    | VMNET_MEM_FAILURE      [@id 1002]
+    | VMNET_INVALID_ARGUMENT [@id 1003]
+    | VMNET_SETUP_INCOMPLETE [@id 1004]
+    | VMNET_INVALID_ACCESS   [@id 1005]
+    | VMNET_PACKET_TOO_BIG   [@id 1006]
+    | VMNET_BUFFER_EXHAUSTED [@id 1007]
+    | VMNET_TOO_MANY_PACKETS [@id 1008]
+  [@@uint32_t]
+  ][@@deriving sexp]
 
   exception Return_code of int
   let _ = Callback.register_exception "vmnet_raw_return" (Return_code 0)
@@ -59,10 +61,10 @@ type error =
  | Packet_too_big
  | Buffer_exhausted
  | Too_many_packets
- | Unknown of int with sexp
+ | Unknown of int [@@deriving sexp]
 
-exception Error of error with sexp
-exception No_packets_waiting with sexp
+exception Error of error [@@deriving sexp]
+exception No_packets_waiting [@@deriving sexp]
 
 let error_of_int =
   function
@@ -73,19 +75,19 @@ let error_of_int =
   | 1005 -> Invalid_access
   | 1006 -> Packet_too_big
   | 1007 -> Buffer_exhausted
-  | 1008 -> Too_many_packets 
+  | 1008 -> Too_many_packets
   | err  -> Unknown err
 
 type mode =
   | Host_mode
-  | Shared_mode with sexp
+  | Shared_mode [@@deriving sexp]
 
 type t = {
   iface: interface_ref sexp_opaque;
   name: string;
   mac: Macaddr.t;
   max_packet_size: int;
-} with sexp_of
+} [@@deriving sexp_of]
 
 let mac {mac} = mac
 let max_packet_size {max_packet_size} = max_packet_size
@@ -109,7 +111,7 @@ let init ?(mode = Shared_mode) () =
     raise (Error (error_of_int r))
 
 let set_event_handler {iface; _} =
-  Raw.set_event_handler iface 
+  Raw.set_event_handler iface
 
 let wait_for_event {iface; _} =
   Raw.wait_for_event iface
