@@ -17,7 +17,7 @@
 (** MacOS X userspace network bridging. *)
 
 (** [t] contains the interface state for one vmnet interface. *)
-type t with sexp_of
+type t [@@deriving sexp_of]
 
 (** [mode] controls the level of sharing exposed to the vmnet interface.
 
@@ -32,7 +32,7 @@ type t with sexp_of
     configuration via DHCP). *)
 type mode =
   | Host_mode
-  | Shared_mode with sexp
+  | Shared_mode [@@deriving sexp]
 
 (** [error] represents hard failures from the underlying vmnet functions. *)
 type error =
@@ -44,15 +44,15 @@ type error =
  | Packet_too_big
  | Buffer_exhausted
  | Too_many_packets
- | Unknown of int with sexp
+ | Unknown of int [@@deriving sexp]
 
 (** [Error] can be raised by vmnet functions when hard errors are encountered. *)
-exception Error of error with sexp
+exception Error of error [@@deriving sexp]
 
 (** [No_packets_waiting] is raised when {!read} is called on an interface that
    has no packets queued.  {!wait_for_event} can be used to block the client
    until packets do arrive. *)
-exception No_packets_waiting with sexp
+exception No_packets_waiting [@@deriving sexp]
 
 (** [init ?mode] will initialise a fresh vmnet interface, defaulting to
     {!Shared_mode} for the output. Raises {!Error} if something goes wrong. *)
@@ -84,4 +84,3 @@ val read : t -> Cstruct.t -> Cstruct.t
    normally not block, but the vmnet interface isnt clear on whether this might
    happen. *)
 val write : t -> Cstruct.t -> unit
-

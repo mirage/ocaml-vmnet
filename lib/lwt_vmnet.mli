@@ -22,14 +22,14 @@
     guest network interfaces in the host mode and to the native host.
     - {!Shared_mode} lets the guest network interface reach the Internet
     using a network address translator.
-    
+
     Note that in MacOS X Yosemite, {!Host_mode} also provides a NAT to the
     guest, but with the subnet and DNS options not set (so it has no way
     to communicate externally but can still retrieve host-local network
     configuration via DHCP). *)
 type mode = Vmnet.mode =
- | Host_mode 
- | Shared_mode with sexp
+ | Host_mode
+ | Shared_mode [@@deriving sexp]
 
 (** [error] represents hard failures from the underlying vmnet functions. *)
 type error = Vmnet.error =
@@ -41,14 +41,14 @@ type error = Vmnet.error =
  | Packet_too_big
  | Buffer_exhausted
  | Too_many_packets
- | Unknown of int with sexp
+ | Unknown of int [@@deriving sexp]
 
 (** [Error] can be raised by vmnet functions when hard errors are encountered. *)
-exception Error of error with sexp
+exception Error of error [@@deriving sexp]
 
 (** [t] is the internal state of one vmnet interface, including Lwt-specific
    waiters and threads. *)
-type t with sexp_of
+type t [@@deriving sexp_of]
 
 (** [mac t] will return the MAC address bound to the guest network interface. *)
 val mac : t -> Macaddr.t
