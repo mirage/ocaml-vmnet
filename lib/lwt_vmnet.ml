@@ -39,8 +39,8 @@ type t = {
   waiters: unit Lwt.u Lwt_sequence.t sexp_opaque;
 } [@@deriving sexp_of]
 
-let mac {dev} = Vmnet.mac dev
-let max_packet_size {dev} = Vmnet.max_packet_size dev
+let mac {dev; _} = Vmnet.mac dev
+let max_packet_size {dev; _} = Vmnet.max_packet_size dev
 
 let wakeup_for_read t =
   match Lwt_sequence.take_opt_l t.waiters with
