@@ -64,6 +64,7 @@ type error =
  | Unknown of int [@@deriving sexp]
 
 exception Error of error [@@deriving sexp]
+exception Permission_denied
 exception No_packets_waiting [@@deriving sexp]
 
 let error_of_int =
@@ -108,7 +109,9 @@ let init ?(mode = Shared_mode) () =
     let max_packet_size = t.Raw.max_packet_size in
     { iface=t.Raw.iface; mac; max_packet_size; name }
   with Raw.Return_code r ->
-    raise (Error (error_of_int r))
+    if r = 1001 && Unix.geteuid() <> 0
+    then raise Permission_denied
+    else raise (Error (error_of_int r))
 
 let set_event_handler {iface; _} =
   Raw.set_event_handler iface

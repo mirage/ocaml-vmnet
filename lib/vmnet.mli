@@ -49,6 +49,10 @@ type error =
 (** [Error] can be raised by vmnet functions when hard errors are encountered. *)
 exception Error of error [@@deriving sexp]
 
+(** [Permission_denied] can be raised if the process needs root privileges
+    (or the vmnet capability) *)
+exception Permission_denied
+
 (** [No_packets_waiting] is raised when {!read} is called on an interface that
    has no packets queued.  {!wait_for_event} can be used to block the client
    until packets do arrive. *)

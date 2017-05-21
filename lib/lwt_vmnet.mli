@@ -46,6 +46,10 @@ type error = Vmnet.error =
 (** [Error] can be raised by vmnet functions when hard errors are encountered. *)
 exception Error of error [@@deriving sexp]
 
+(** [Permission_denied] can be raised if the process needs root privileges
+    (or the vmnet capability) *)
+exception Permission_denied
+
 (** [t] is the internal state of one vmnet interface, including Lwt-specific
    waiters and threads. *)
 type t [@@deriving sexp_of]
