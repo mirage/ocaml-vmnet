@@ -32,6 +32,8 @@ type error = Vmnet.error =
 
 exception Error of error [@@deriving sexp]
 
+exception Permission_denied
+
 type t = {
   dev: Vmnet.t;
   waiters: unit Lwt.u Lwt_sequence.t sexp_opaque;
@@ -64,6 +66,7 @@ let init ?(mode = Shared_mode) () =
     return t
   ) (function
     | Vmnet.Error err -> fail (Error err)
+    | Vmnet.Permission_denied -> fail Permission_denied
     | e -> fail e)
 
 let rec read t c =
