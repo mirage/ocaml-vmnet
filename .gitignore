@@ -1,7 +1,5 @@
 *.native
 *.byte
-setup.data
-setup.log
 *.cmx
 *.cma
 *.cmo
@@ -13,3 +11,5 @@ _build
 a.out
 *.swp
 *.dSYM/
+*.merlin
+*.install

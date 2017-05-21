@@ -34,20 +34,6 @@ module Raw = struct
   external caml_vmnet_read : interface_ref -> buf -> int -> int -> int = "caml_vmnet_read"
   external caml_vmnet_write : interface_ref -> buf -> int -> int -> int = "caml_vmnet_write"
 
-  [%%cenum
-  type result =
-    | VMNET_SUCCESS          [@id 1000]
-    | VMNET_FAILURE          [@id 1001]
-    | VMNET_MEM_FAILURE      [@id 1002]
-    | VMNET_INVALID_ARGUMENT [@id 1003]
-    | VMNET_SETUP_INCOMPLETE [@id 1004]
-    | VMNET_INVALID_ACCESS   [@id 1005]
-    | VMNET_PACKET_TOO_BIG   [@id 1006]
-    | VMNET_BUFFER_EXHAUSTED [@id 1007]
-    | VMNET_TOO_MANY_PACKETS [@id 1008]
-  [@@uint32_t]
-  ][@@deriving sexp]
-
   exception Return_code of int
   let _ = Callback.register_exception "vmnet_raw_return" (Return_code 0)
 end
@@ -90,8 +76,8 @@ type t = {
   max_packet_size: int;
 } [@@deriving sexp_of]
 
-let mac {mac} = mac
-let max_packet_size {max_packet_size} = max_packet_size
+let mac {mac; _} = mac
+let max_packet_size {max_packet_size; _} = max_packet_size
 
 let iface_num = ref 0
 
