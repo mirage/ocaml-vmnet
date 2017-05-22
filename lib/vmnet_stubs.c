@@ -87,7 +87,7 @@ caml_init_vmnet(value v_mode)
   dispatch_queue_t if_create_q = dispatch_queue_create("org.openmirage.vmnet.create", DISPATCH_QUEUE_SERIAL);
   dispatch_semaphore_t iface_created = dispatch_semaphore_create(0);
   iface = vmnet_start_interface(interface_desc, if_create_q,
-    ^(vmnet_return_t status, xpc_object_t interface_param) { 
+    ^(vmnet_return_t status, xpc_object_t interface_param) {
       iface_status = status;
       if (status != VMNET_SUCCESS || !interface_param) {
          dispatch_semaphore_signal(iface_created);
@@ -172,7 +172,7 @@ caml_vmnet_read(value v_vmnet, value v_ba, value v_ba_off, value v_ba_len)
   v.vm_flags = 0; /* TODO no clue what this is */
   int pktcnt = 1;
   vmnet_return_t res = vmnet_read(iface, &v, &pktcnt);
-  if (res != VMNET_SUCCESS) 
+  if (res != VMNET_SUCCESS)
     CAMLreturn(Val_int((-1)*res));
   else if (pktcnt <= 0)
     CAMLreturn(Val_int(0));
@@ -196,7 +196,7 @@ caml_vmnet_write(value v_vmnet, value v_ba, value v_ba_off, value v_ba_len)
   v.vm_flags = 0; /* TODO no clue what this is */
   int pktcnt = 1;
   vmnet_return_t res = vmnet_write(iface, &v, &pktcnt);
-  if (res == VMNET_SUCCESS) 
+  if (res == VMNET_SUCCESS)
     CAMLreturn(Val_int(v.vm_pkt_size));
   else
     CAMLreturn(Val_int((-1)*res));
