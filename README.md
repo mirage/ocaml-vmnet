@@ -1,4 +1,4 @@
-MacOS X `vmnet` bridged networking
+MacOS X `vmnet` NAT networking
 
 MacOS X 10.10 (Yosemite) introduced the somewhat undocumented `vmnet`
 framework.  This exposes virtual network interfaces to userland applications.
@@ -8,14 +8,23 @@ There are a number of advantages of this over previous implementations:
   to MacOS X now and so is easier to package up and distribute for end users.
 - `vmnet` uses the XPC sandboxing interfaces and should make it easier to
   drop a hard dependency on running networking applications as `root`.
-- Most significantly, `vmnet` supports bridging network traffic to the
+- Most significantly, `vmnet` optionally supports NATing network traffic to the
   outside world, which was previously unsupported.
 
 These OCaml bindings are constructed against the documentation contained
 in the `<vmnet.h>` header file in Yosemite, and may not be correct due to
 the lack of any other example code.  However, they do suffice to run
 [MirageOS](http://openmirage.org) applications that can connect to the
-outside world.  The bindings are also slightly complicated by the need
+outside world.
+
+Note the application must be configured to use DHCP: static IPs are not supported.
+To configure a MirageOS application use a command like:
+
+```
+mirage configure -t macosx --dhcp true
+```
+
+The bindings are also slightly complicated by the need
 to interface [GCD](http://en.wikipedia.org/wiki/Grand_Central_Dispatch)
 thread pools with the OCaml runtime, so please report any instabilities
 that you see when using this interface as a consumer.
