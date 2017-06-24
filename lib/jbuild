@@ -1,7 +1,7 @@
 (library
  ((name        vmnet)
   (public_name vmnet)
-  (libraries   (bigarray unix cstruct.unix sexplib ipaddr threads))
+  (libraries   (bigarray unix cstruct-unix sexplib ipaddr threads))
   (flags       (:standard -w "A-4-41-44" -warn-error "+1..49" -safe-string -principal -strict-sequence))
   (modules     (Vmnet))
   (c_names     (vmnet_stubs))
