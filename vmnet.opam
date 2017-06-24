@@ -20,7 +20,6 @@ build-test: [
 ]
 
 depends: [
-  "ocamlfind" {build}
   "jbuilder"   {build & >="1.0+beta9"}
   "ppx_tools" {build}
   "ppx_sexp_conv" {build}
