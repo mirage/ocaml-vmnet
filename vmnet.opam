@@ -13,6 +13,12 @@ build: [
   [ "jbuilder" "build" "-p" name "-j" jobs ]
 ]
 
+build-test: [
+  [ "jbuilder" "subst"] {pinned}
+  [ "jbuilder" "build" "-p" name "-j" jobs ]
+  [ "jbuilder" "runtest" ]
+]
+
 depends: [
   "ocamlfind" {build}
   "jbuilder"   {build & >="1.0+beta9"}
