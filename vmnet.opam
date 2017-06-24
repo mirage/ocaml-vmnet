@@ -13,15 +13,22 @@ build: [
   [ "jbuilder" "build" "-p" name "-j" jobs ]
 ]
 
+build-test: [
+  [ "jbuilder" "subst"] {pinned}
+  [ "jbuilder" "build" "-p" name "-j" jobs ]
+  [ "jbuilder" "runtest" ]
+]
+
 depends: [
-  "ocamlfind" {build}
   "jbuilder"   {build & >="1.0+beta9"}
   "ppx_tools" {build}
   "ppx_sexp_conv" {build}
+  "ocaml-migrate-parsetree" {build}
   "sexplib" {>= "113.24.00"}
   "ipaddr" {>="1.4.0"}
   "lwt" {>="2.4.3"}
   "cstruct" {>="1.9.0"}
+  "cstruct-unix"
 ]
 available: [ os = "darwin" ]
 post-messages: [
