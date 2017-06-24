@@ -23,6 +23,7 @@ depends: [
   "jbuilder"   {build & >="1.0+beta9"}
   "ppx_tools" {build}
   "ppx_sexp_conv" {build}
+  "ocaml-migrate-parsetree" {build}
   "sexplib" {>= "113.24.00"}
   "ipaddr" {>="1.4.0"}
   "lwt" {>="2.4.3"}
