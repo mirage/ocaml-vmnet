@@ -1,3 +1,8 @@
+## 1.3.1 (2018-01-23)
+
+* remove `-warn-error` flags in release mode. Fix compilation on 4.06
+  (#21, @samoht)
+
 ## 1.3.0 (2017-06-24)
 * Depend on cstruct-unix, part of cstruct 3.0.0
 
