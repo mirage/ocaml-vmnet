@@ -1,4 +1,4 @@
-MacOS X `vmnet` NAT networking
+## vmnet -- MacOS X `vmnet` NAT networking
 
 MacOS X 10.10 (Yosemite) introduced the somewhat undocumented `vmnet`
 framework.  This exposes virtual network interfaces to userland applications.
@@ -18,6 +18,9 @@ the lack of any other example code.  However, they do suffice to run
 outside world.
 
 Note the application must be configured to use DHCP: static IPs are not supported.
+
+## Usage
+
 To configure a MirageOS application use a command like:
 
 ```
