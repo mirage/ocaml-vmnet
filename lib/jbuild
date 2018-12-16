@@ -12,7 +12,7 @@
 (library
  ((name        vmnet_lwt)
   (public_name vmnet.lwt)
-  (libraries   (vmnet lwt lwt.unix lwt.preemptive))
+  (libraries   (vmnet lwt lwt.unix))
   (modules     (Lwt_vmnet))
   (wrapped     false)
   (preprocess  (pps (ppx_sexp_conv)))
