@@ -13,6 +13,7 @@ build: [
   [ "dune" "runtest" ] {with-test}
 ]
 depends: [
+  "ocaml" {>="4.04"}
   "dune" {build}
   "ppx_sexp_conv"
   "sexplib" {>= "113.24.00"}
