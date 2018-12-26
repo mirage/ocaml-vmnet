@@ -1,3 +1,8 @@
+## 1.3.2 (2018-12-26)
+
+* compile with Lwt 4 (#22 by @anmonteiro)
+* port to dune from jbuilder
+
 ## 1.3.1 (2018-01-23)
 
 * remove `-warn-error` flags in release mode. Fix compilation on 4.06
