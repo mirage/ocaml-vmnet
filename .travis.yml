@@ -1,9 +1,14 @@
 language: c
-sudo: required
-install: wget https://raw.githubusercontent.com/ocaml/ocaml-ci-scripts/master/.travis-opam.sh
-script: bash -ex .travis-opam.sh
-env:
-  global:
-    - PACKAGE="vmnet"
+sudo: false
+install: wget https://raw.githubusercontent.com/ocaml/ocaml-travisci-skeleton/master/.travis-opam.sh
+script: bash -ex ./.travis-opam.sh
 os:
   - osx
+env:
+  global:
+  - PINS="vmnet:."
+  matrix:
+  - PACKAGE="vmnet"       DISTRO="ubuntu-16.04"    OCAML_VERSION="4.07"
+  - PACKAGE="vmnet"       DISTRO="ubuntu-16.04"    OCAML_VERSION="4.06"
+  - PACKAGE="vmnet"       DISTRO="ubuntu-16.04"    OCAML_VERSION="4.05"
+  - PACKAGE="vmnet"       DISTRO="ubuntu-16.04"    OCAML_VERSION="4.04"
