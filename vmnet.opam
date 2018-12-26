@@ -24,6 +24,7 @@ depends: [
   "cstruct-unix"
 ]
 available: [ os = "macos" ]
+synopsis: "MacOS X `vmnet` NAT networking"
 post-messages: [
   "This package requires the vmnet.framework plus development headers which are present in Yosemite (10.10.*) and later." {failure}
 ]
