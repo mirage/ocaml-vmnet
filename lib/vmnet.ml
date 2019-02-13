@@ -72,11 +72,13 @@ type mode =
 type t = {
   iface: interface_ref sexp_opaque;
   name: string;
+  mtu: int;
   mac: Macaddr_sexp.t;
   max_packet_size: int;
 } [@@deriving sexp_of]
 
 let mac {mac; _} = mac
+let mtu {mtu; _} = mtu
 let max_packet_size {max_packet_size; _} = max_packet_size
 
 let iface_num = ref 0
@@ -92,8 +94,9 @@ let init ?(mode = Shared_mode) () =
     let name = Printf.sprintf "vmnet%d" !iface_num in
     incr iface_num;
     let mac = Macaddr.of_bytes_exn t.Raw.mac in
+    let mtu = t.Raw.mtu in
     let max_packet_size = t.Raw.max_packet_size in
-    { iface=t.Raw.iface; mac; max_packet_size; name }
+    { iface=t.Raw.iface; mac; mtu; max_packet_size; name }
   with Raw.Return_code r ->
     if r = 1001 && Unix.geteuid() <> 0
     then raise Permission_denied
