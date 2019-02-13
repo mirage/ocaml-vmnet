@@ -17,6 +17,7 @@
 let _ =
   print_endline "init";
   let t = Vmnet.init () in
+  Printf.printf "mtu %d\n%!" (Vmnet.mtu t);
   let dump () =
     Vmnet.read t (Cstruct.create 4096)
     |> Cstruct.hexdump;
