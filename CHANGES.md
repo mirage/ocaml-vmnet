@@ -1,3 +1,7 @@
+## v1.5.0 (2019-02-14)
+* Expose the MTU via `Lwt_vmnet.mtu` as well (@avsm)
+* Use `Lwt_dllist` to remove deprecated `Lwt_sequence` (@avsm)
+
 ## v1.4.0 (2019-02-13)
 * Expose the MTU of the interface via `Vmnet.mtu` (@avsm)
 
