@@ -57,6 +57,10 @@ type t [@@deriving sexp_of]
 (** [mac t] will return the MAC address bound to the guest network interface. *)
 val mac : t -> Macaddr.t
 
+(** [mtu t] will return the Maximum Transmission unit bound to the guest
+    network interface [t]. *)
+val mtu : t -> int
+
 (** [max_packet_size t] will return the maximum allowed packet buffer that can
     be passed to {!write}.  Exceeding this will raise {!Packet_too_big} from
     {!write}. *)

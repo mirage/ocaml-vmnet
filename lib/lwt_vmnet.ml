@@ -14,8 +14,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-[@@@warning "-3"]
-
 open Lwt
 open Sexplib.Conv
 
@@ -38,14 +36,15 @@ exception Permission_denied
 
 type t = {
   dev: Vmnet.t;
-  waiters: unit Lwt.u Lwt_sequence.t sexp_opaque;
+  waiters: unit Lwt.u Lwt_dllist.t sexp_opaque;
 } [@@deriving sexp_of]
 
 let mac {dev; _} = Vmnet.mac dev
+let mtu {dev; _} = Vmnet.mtu dev
 let max_packet_size {dev; _} = Vmnet.max_packet_size dev
 
 let wakeup_for_read t =
-  match Lwt_sequence.take_opt_l t.waiters with
+  match Lwt_dllist.take_opt_l t.waiters with
   | Some u -> Lwt.wakeup u ()
   | None -> ()
 
@@ -62,7 +61,7 @@ let init ?(mode = Shared_mode) () =
   Lwt.catch
   (fun () ->
     let dev = Vmnet.init ~mode () in
-    let waiters = Lwt_sequence.create () in
+    let waiters = Lwt_dllist.create () in
     let t = { dev; waiters } in
     let _ = wait_for_event t in
     return t
@@ -79,8 +78,8 @@ let rec read t c =
   | Vmnet.Error err -> fail (Error err)
   | Vmnet.No_packets_waiting ->
       let (th, u) : (unit Lwt.t * unit Lwt.u) = Lwt.task () in
-      let node = Lwt_sequence.add_r u t.waiters in
-      Lwt.on_cancel th (fun _ -> Lwt_sequence.remove node);
+      let node = Lwt_dllist.add_r u t.waiters in
+      Lwt.on_cancel th (fun _ -> Lwt_dllist.remove node);
       th >>= fun () ->
       read t c
   | e -> fail e)
