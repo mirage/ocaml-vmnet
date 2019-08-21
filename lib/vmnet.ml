@@ -93,7 +93,7 @@ let init ?(mode = Shared_mode) () =
     let t = Raw.init mode in
     let name = Printf.sprintf "vmnet%d" !iface_num in
     incr iface_num;
-    let mac = Macaddr.of_bytes_exn t.Raw.mac in
+    let mac = Macaddr.of_octets_exn t.Raw.mac in
     let mtu = t.Raw.mtu in
     let max_packet_size = t.Raw.max_packet_size in
     { iface=t.Raw.iface; mac; mtu; max_packet_size; name }

@@ -18,7 +18,8 @@ depends: [
   "ppx_sexp_conv"
   "sexplib" {>= "113.24.00"}
   "lwt-dllist"
-  "macaddr"
+  "macaddr" {>="4.0.0"}
+  "macaddr-sexp"
   "lwt" {>="2.4.3"}
   "cstruct" {>="1.9.0"}
   "cstruct-unix"
