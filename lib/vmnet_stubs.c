@@ -173,7 +173,7 @@ caml_vmnet_read(value v_vmnet, value v_ba, value v_ba_off, value v_ba_len)
   int pktcnt = 1;
   vmnet_return_t res = vmnet_read(iface, &v, &pktcnt);
   if (res != VMNET_SUCCESS)
-    CAMLreturn(Val_int((-1)*res));
+    CAMLreturn(Val_int((-1)*(int32_t)res));
   else if (pktcnt <= 0)
     CAMLreturn(Val_int(0));
   else
@@ -199,5 +199,5 @@ caml_vmnet_write(value v_vmnet, value v_ba, value v_ba_off, value v_ba_len)
   if (res == VMNET_SUCCESS)
     CAMLreturn(Val_int(v.vm_pkt_size));
   else
-    CAMLreturn(Val_int((-1)*res));
+    CAMLreturn(Val_int((-1)*(int32_t)res));
 }

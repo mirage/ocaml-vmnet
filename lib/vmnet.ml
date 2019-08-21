@@ -112,7 +112,7 @@ let read {iface;_} c =
   let r = Raw.caml_vmnet_read iface c.Cstruct.buffer c.Cstruct.off c.Cstruct.len in
   match r with
   | 0 -> raise No_packets_waiting
-  | len when len > 0 -> Cstruct.set_len c len
+  | len when len > 0 -> Cstruct.sub c 0 len
   | err -> raise (Error (error_of_int (err * (-1))))
 
 let write {iface;_} c =
