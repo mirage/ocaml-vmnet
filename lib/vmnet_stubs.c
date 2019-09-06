@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 Anil Madhavapeddy <anil@recoil.org>
+ * Copyright (C) 2019 Magnus Skjegstad <magnus@skjegstad.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -33,6 +34,7 @@
 #include <dispatch/dispatch.h>
 #include <vmnet/vmnet.h>
 #include <pthread.h>
+#include <availability.h>
 
 static struct custom_operations vmnet_state_ops = {
   "org.openmirage.vmnet.vmnet_state",
@@ -52,6 +54,14 @@ struct vmnet_state {
 };
 #define Vmnet_state_val(v) (*((struct vmnet_state **) Data_custom_val(v)))
 
+void
+caml_raise_api_not_supported () {
+  value *v_exc = caml_named_value("vmnet_api_not_supported");
+  if (!v_exc)
+	caml_failwith("Vmnet.Error exception not registered");
+  caml_raise_constant(*v_exc);
+}
+
 static value
 alloc_vmnet_state(interface_ref i)
 {
@@ -69,12 +79,20 @@ alloc_vmnet_state(interface_ref i)
 }
 
 CAMLprim value
-caml_init_vmnet(value v_mode)
+caml_init_vmnet(value v_mode, value v_iface)
 {
-  CAMLparam1(v_mode);
+  CAMLparam2(v_mode, v_iface);
   CAMLlocal3(v_iface_ref,v_res,v_mac);
   xpc_object_t interface_desc = xpc_dictionary_create(NULL, NULL, 0);
   xpc_dictionary_set_uint64(interface_desc, vmnet_operation_mode_key, Int_val(v_mode));
+
+  #if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
+  if (Int_val(v_mode) == VMNET_BRIDGED_MODE) {
+	// If bridged mode is set we have to supply the interface as a string
+	xpc_dictionary_set_string(interface_desc, vmnet_shared_interface_name_key, String_val(v_iface));
+  }
+  #endif
+
   uuid_t uuid;
   uuid_generate_random(uuid);
   xpc_dictionary_set_uuid(interface_desc, vmnet_interface_id_key, uuid);
@@ -120,6 +138,34 @@ caml_init_vmnet(value v_mode)
   Field(v_res,2) = Val_int(mtu);
   Field(v_res,3) = Val_int(max_packet_size);
   CAMLreturn(v_res);
+}
+
+CAMLprim value
+caml_shared_interface_list (void) {
+  #if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
+  CAMLparam0();
+  CAMLlocal1(ret_array);
+
+  xpc_object_t l = vmnet_copy_shared_interface_list();
+  if (l != NULL) {
+    size_t len = xpc_array_get_count(l);
+
+    ret_array = caml_alloc(len, 0);
+    for (int i = 0; i < len; i++) {
+      const char *p = xpc_array_get_string(l, i);
+      Store_field(ret_array, 0, caml_copy_string(p));
+    }
+
+    xpc_release(l);
+
+    CAMLreturn(ret_array); 
+  } else {
+    CAMLreturn(Atom(0)); // Array empty
+  }
+
+  #else
+  caml_raise_api_not_supported();
+  #endif
 }
 
 CAMLprim value
@@ -201,3 +247,4 @@ caml_vmnet_write(value v_vmnet, value v_ba, value v_ba_off, value v_ba_len)
   else
     CAMLreturn(Val_int((-1)*(int32_t)res));
 }
+

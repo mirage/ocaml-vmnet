@@ -28,14 +28,17 @@ module Raw = struct
     max_packet_size: int;
   }
 
-  external init : int -> t = "caml_init_vmnet"
+  external init : int -> string -> t = "caml_init_vmnet"
   external set_event_handler : interface_ref -> unit = "caml_set_event_handler"
   external wait_for_event : interface_ref -> unit = "caml_wait_for_event"
   external caml_vmnet_read : interface_ref -> buf -> int -> int -> int = "caml_vmnet_read"
   external caml_vmnet_write : interface_ref -> buf -> int -> int -> int = "caml_vmnet_write"
+  external caml_shared_interface_list : unit -> string array = "caml_shared_interface_list"
 
   exception Return_code of int
+  exception API_not_supported
   let _ = Callback.register_exception "vmnet_raw_return" (Return_code 0)
+  let _ = Callback.register_exception "vmnet_api_not_supported" (API_not_supported)
 end
 
 type error =
@@ -53,6 +56,7 @@ exception Error of error [@@deriving sexp]
 exception Permission_denied
 exception No_packets_waiting [@@deriving sexp]
 
+(* Possible values of vmnet_return_t *)
 let error_of_int =
   function
   | 1001 -> Failure
@@ -67,7 +71,8 @@ let error_of_int =
 
 type mode =
   | Host_mode
-  | Shared_mode [@@deriving sexp]
+  | Shared_mode
+  | Bridged_mode of string [@@deriving sexp]
 
 type t = {
   iface: interface_ref sexp_opaque;
@@ -84,23 +89,24 @@ let max_packet_size {max_packet_size; _} = max_packet_size
 let iface_num = ref 0
 
 let init ?(mode = Shared_mode) () =
-  let mode =
+  let mode, iface =
     match mode with
-    | Host_mode -> 1000
-    | Shared_mode -> 1001
+    | Host_mode -> (1000, "")
+    | Shared_mode -> (1001, "")
+    | Bridged_mode iface -> (1002, iface)
   in
   try
-    let t = Raw.init mode in
+    let t = Raw.init mode iface in
     let name = Printf.sprintf "vmnet%d" !iface_num in
     incr iface_num;
     let mac = Macaddr.of_octets_exn t.Raw.mac in
     let mtu = t.Raw.mtu in
     let max_packet_size = t.Raw.max_packet_size in
     { iface=t.Raw.iface; mac; mtu; max_packet_size; name }
-  with Raw.Return_code r ->
-    if r = 1001 && Unix.geteuid() <> 0
-    then raise Permission_denied
-    else raise (Error (error_of_int r))
+  with 
+    | Raw.Return_code r -> if r = 1001 && Unix.geteuid() <> 0
+			   then raise Permission_denied
+			   else raise (Error (error_of_int r))
 
 let set_event_handler {iface; _} =
   Raw.set_event_handler iface
@@ -120,3 +126,8 @@ let write {iface;_} c =
   |> function
   | len when len > 0 -> ()
   | err -> raise (Error (error_of_int (err * (-1))))
+
+let shared_interface_list =
+  Raw.caml_shared_interface_list
+
+

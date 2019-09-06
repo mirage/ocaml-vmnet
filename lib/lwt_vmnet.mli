@@ -29,7 +29,8 @@
     configuration via DHCP). *)
 type mode = Vmnet.mode =
  | Host_mode
- | Shared_mode [@@deriving sexp]
+ | Shared_mode
+ | Bridged_mode of string [@@deriving sexp]
 
 (** [error] represents hard failures from the underlying vmnet functions. *)
 type error = Vmnet.error =
@@ -79,3 +80,5 @@ val read : t -> Cstruct.t -> Cstruct.t Lwt.t
    normally not block, but the vmnet interface isnt clear on whether this might
    happen. *)
 val write : t -> Cstruct.t -> unit Lwt.t
+
+val shared_interface_list : unit -> string array

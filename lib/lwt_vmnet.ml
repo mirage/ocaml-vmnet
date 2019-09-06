@@ -17,7 +17,7 @@
 open Lwt
 open Sexplib.Conv
 
-type mode = Vmnet.mode = Host_mode | Shared_mode [@@deriving sexp]
+type mode = Vmnet.mode = Host_mode | Shared_mode | Bridged_mode of string [@@deriving sexp]
 
 type error = Vmnet.error =
  | Failure
@@ -90,3 +90,5 @@ let write t c =
     return_unit
   with
   | Vmnet.Error err -> fail (Error err)
+
+let shared_interface_list = Vmnet.shared_interface_list
