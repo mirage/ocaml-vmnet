@@ -71,7 +71,8 @@ val mtu : t -> int
 
 (** [max_packet_size t] will return the maximum allowed packet buffer that can
     be passed to {!write}.  Exceeding this will raise {!Packet_too_big} from
-    {!write}. *)
+    {!write}. This is also the minimum buffer size that must be passed to
+    {!read}. *)
 val max_packet_size: t -> int
 
 (** [set_event_handler t] will initalise the internal thread state in the library
