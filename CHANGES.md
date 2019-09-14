@@ -1,3 +1,8 @@
+## v1.5.1 (2019-09-14)
+* Report errors correctly from read/write (#29 @magnuss)
+* Remove deprecated calls to `Cstruct.set_len` (#29 @magnuss)
+* Update to use Macaddr and Macaddr.sexp 4.0.0 (#28 @magnuss)
+
 ## v1.5.0 (2019-02-14)
 * Expose the MTU via `Lwt_vmnet.mtu` as well (@avsm)
 * Use `Lwt_dllist` to remove deprecated `Lwt_sequence` (@avsm)
