@@ -34,6 +34,7 @@ module Raw = struct
   external caml_vmnet_read : interface_ref -> buf -> int -> int -> int = "caml_vmnet_read"
   external caml_vmnet_write : interface_ref -> buf -> int -> int -> int = "caml_vmnet_write"
   external caml_shared_interface_list : unit -> string array = "caml_shared_interface_list"
+  external caml_vmnet_interface_add_port_forwarding_rule : interface_ref -> int -> int -> string -> int -> int = "caml_vmnet_interface_add_port_forwarding_rule"
 
   exception Return_code of int
   exception API_not_supported
@@ -130,4 +131,17 @@ let write {iface;_} c =
 let shared_interface_list =
   Raw.caml_shared_interface_list
 
+let add_port_forwarding_rule {iface;_} protocol ext_port ip int_port =
+  Raw.caml_vmnet_interface_add_port_forwarding_rule iface protocol ext_port (Ipaddr.V4.to_string ip) int_port
+  |> function
+  | 1000 -> () (* VMNET_SUCCESS *)
+  | err -> raise (Error (error_of_int err))
 
+let add_tcp_port_forwarding_rule t =
+  add_port_forwarding_rule t 6
+
+let add_udp_port_forwarding_rule t =
+  add_port_forwarding_rule t 17
+
+let add_icmp_port_forwarding_rule t =
+  add_port_forwarding_rule t 1

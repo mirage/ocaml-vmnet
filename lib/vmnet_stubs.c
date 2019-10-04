@@ -15,6 +15,10 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -248,3 +252,42 @@ caml_vmnet_write(value v_vmnet, value v_ba, value v_ba_off, value v_ba_len)
     CAMLreturn(Val_int((-1)*(int32_t)res));
 }
 
+CAMLprim value
+caml_vmnet_interface_add_port_forwarding_rule(value v_vmnet, value v_protocol,
+		value v_ext_port, value v_int_addr, value v_int_port) {
+  CAMLparam5(v_vmnet, v_protocol, v_ext_port, v_int_addr, v_int_port);
+
+  #if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
+  struct vmnet_state *vms = Vmnet_state_val(v_vmnet);
+
+  interface_ref iface = vms->iref;
+  uint8_t _protocol = Int_val(v_protocol);
+  uint16_t _ext_port = Int_val(v_ext_port);
+  struct in_addr _int_addr;
+  inet_pton(AF_INET, String_val(v_int_addr), &_int_addr);
+  uint16_t _int_port = Int_val(v_int_port);
+
+  __block vmnet_return_t vmnet_status = 0;
+  dispatch_semaphore_t rule_added = dispatch_semaphore_create(0);
+
+  vmnet_return_t res = vmnet_interface_add_port_forwarding_rule(iface, _protocol, _ext_port, _int_addr, _int_port,
+    ^(vmnet_return_t status) {
+      vmnet_status = status;
+      dispatch_semaphore_signal(rule_added);
+      return;
+    });
+
+  if (res != VMNET_SUCCESS) {
+    // Failed to queue vmnet command
+    CAMLreturn(Val_int(res));
+  }
+
+  // Wait for signal
+  dispatch_semaphore_wait(rule_added, DISPATCH_TIME_FOREVER);
+
+  CAMLreturn(Val_int(vmnet_status));
+
+  #else
+  caml_raise_api_not_supported();
+  #endif
+}

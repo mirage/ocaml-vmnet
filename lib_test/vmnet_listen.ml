@@ -17,9 +17,11 @@
 let _ =
   print_endline "init";
   let t = Vmnet.init () in
+  let buf_size = Vmnet.max_packet_size t in
   Printf.printf "mtu %d\n%!" (Vmnet.mtu t);
+  Printf.printf "max packet size %d\n%!" buf_size;
   let dump () =
-    Vmnet.read t (Cstruct.create 4096)
+    Vmnet.read t (Cstruct.create buf_size)
     |> Cstruct.hexdump;
   in
   Vmnet.set_event_handler t;
