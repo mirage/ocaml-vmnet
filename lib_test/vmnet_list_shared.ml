@@ -1,5 +1,5 @@
 (*
- * Copyright (c) 2014 Anil Madhavapeddy <anil@recoil.org>
+ * Copyright (c) 2019 Magnus Skjegstad <magnus@skjegstad.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,19 +15,8 @@
  *)
 
 let _ =
-  print_endline "init";
-  let t = Vmnet.init () in
-  let buf_size = Vmnet.max_packet_size t in
-  Printf.printf "mtu %d\n%!" (Vmnet.mtu t);
-  Printf.printf "max packet size %d\n%!" buf_size;
-  let dump () =
-    Vmnet.read t (Cstruct.create buf_size)
-    |> Cstruct.hexdump;
-  in
-  Vmnet.set_event_handler t;
-  dump ();
-  print_endline "read";
-  Unix.sleep 2;
-  Vmnet.write t (Cstruct.create buf_size);
-  Unix.sleep 10;
-  print_endline "end init"
+  let rec print_if = (function
+    [] -> ()
+    | e::l -> (Printf.printf "%s\n" e); print_if l) in
+  Printf.printf "Interfaces found with BRIDGED_MODE support (wired only):\n";
+  print_if (Array.to_list (Vmnet.shared_interface_list ()))

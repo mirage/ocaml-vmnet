@@ -20,7 +20,5 @@ let _ =
     Printf.printf "write: %d\n%!" sz;
     Vmnet.write t (Cstruct.create sz) in
   Vmnet.set_event_handler t;
-  dump 4096;
-  dump 128;
-  dump 12;
+  dump (Vmnet.max_packet_size t);
   Unix.sleep 1
