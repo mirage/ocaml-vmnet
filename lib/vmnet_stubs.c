@@ -90,7 +90,7 @@ caml_init_vmnet(value v_mode, value v_iface)
   xpc_object_t interface_desc = xpc_dictionary_create(NULL, NULL, 0);
   xpc_dictionary_set_uint64(interface_desc, vmnet_operation_mode_key, Int_val(v_mode));
 
-  #if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
+  #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
   if (Int_val(v_mode) == VMNET_BRIDGED_MODE) {
 	// If bridged mode is set we have to supply the interface as a string
 	xpc_dictionary_set_string(interface_desc, vmnet_shared_interface_name_key, String_val(v_iface));
@@ -146,8 +146,9 @@ caml_init_vmnet(value v_mode, value v_iface)
 
 CAMLprim value
 caml_shared_interface_list (void) {
-  #if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
   CAMLparam0();
+
+  #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
   CAMLlocal1(ret_array);
 
   xpc_object_t l = vmnet_copy_shared_interface_list();
@@ -169,6 +170,7 @@ caml_shared_interface_list (void) {
 
   #else
   caml_raise_api_not_supported();
+  CAMLreturn(Atom(0)); // Not reached
   #endif
 }
 
@@ -257,7 +259,7 @@ caml_vmnet_interface_add_port_forwarding_rule(value v_vmnet, value v_protocol,
 		value v_ext_port, value v_int_addr, value v_int_port) {
   CAMLparam5(v_vmnet, v_protocol, v_ext_port, v_int_addr, v_int_port);
 
-  #if MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_10_15
+  #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
   struct vmnet_state *vms = Vmnet_state_val(v_vmnet);
 
   interface_ref iface = vms->iref;
@@ -289,5 +291,6 @@ caml_vmnet_interface_add_port_forwarding_rule(value v_vmnet, value v_protocol,
 
   #else
   caml_raise_api_not_supported();
+  CAMLreturn(Val_int(1000)); // Not reached
   #endif
 }
