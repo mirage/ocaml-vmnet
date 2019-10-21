@@ -95,8 +95,27 @@ let _ =
   send_garp vmnet_t mac local_ip;
 
   (* set up port forwarding *)
-  print_endline "Creating a TCP forwarding rule for port 1234";
-  Vmnet.add_tcp_port_forwarding_rule vmnet_t 1234 local_ip 1234;
+  print_endline "Creating some forwarding rules...";
+  Vmnet.add_port_forwarding_rule vmnet_t TCP 1234 local_ip 1234;
+  Vmnet.add_port_forwarding_rule vmnet_t TCP 1235 local_ip 1235;
+  Vmnet.add_port_forwarding_rule vmnet_t TCP 1236 local_ip 1236;
+  Vmnet.add_port_forwarding_rule vmnet_t UDP 1234 local_ip 1234;
+
+  print_endline "Removing one rule";
+  Vmnet.remove_port_forwarding_rule vmnet_t UDP 1234;
+
+  print_endline "Active firewall rules:";
+  print_endline "proto\text\tinternal ip\tint";
+  Array.iter (fun (proto, ext_port, ip, int_port) ->
+        let proto_s =
+                Vmnet.(match proto with
+                | TCP -> "tcp"
+                | UDP -> "udp"
+                | ICMP -> "icmp"
+                | Other _ -> "other")
+        in
+        Printf.printf "%s\t%d\t%s\t%d\n" proto_s ext_port (Ipaddr.V4.to_string ip) int_port)
+        (Vmnet.get_port_forwarding_rules vmnet_t);
 
   print_endline "Traffic sent to the external IP on TCP port 1234 should now appear here.";
 
@@ -130,4 +149,3 @@ let _ =
           listen_and_print ()
   in
   listen_and_print ()
-

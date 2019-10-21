@@ -1,5 +1,6 @@
 (*
  * Copyright (c) 2014 Anil Madhavapeddy <anil@recoil.org>
+ * Copyright (c) 2019 Magnus Skjegstad <magnus@skjegstad.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -35,6 +36,8 @@ module Raw = struct
   external caml_vmnet_write : interface_ref -> buf -> int -> int -> int = "caml_vmnet_write"
   external caml_shared_interface_list : unit -> string array = "caml_shared_interface_list"
   external caml_vmnet_interface_add_port_forwarding_rule : interface_ref -> int -> int -> string -> int -> int = "caml_vmnet_interface_add_port_forwarding_rule"
+  external caml_vmnet_interface_remove_port_forwarding_rule : interface_ref -> int -> int -> int = "caml_vmnet_interface_remove_port_forwarding_rule"
+  external caml_interface_get_port_forwarding_rules : interface_ref -> (int * int * string * int) array = "caml_interface_get_port_forwarding_rules"
 
   exception Return_code of int
   exception API_not_supported
@@ -74,6 +77,26 @@ type mode =
   | Host_mode
   | Shared_mode
   | Bridged_mode of string [@@deriving sexp]
+
+type proto =
+  | TCP
+  | UDP
+  | ICMP
+  | Other of int [@@deriving sexp]
+
+let int_of_proto =
+  function
+  | TCP     -> 6
+  | UDP     -> 17
+  | ICMP    -> 1
+  | Other x -> x
+
+let proto_of_int =
+  function
+  | 6  -> TCP
+  | 17 -> UDP
+  | 1  -> ICMP
+  | x  -> Other x
 
 type t = {
   iface: interface_ref sexp_opaque;
@@ -131,17 +154,20 @@ let write {iface;_} c =
 let shared_interface_list =
   Raw.caml_shared_interface_list
 
+let get_port_forwarding_rules {iface;_} =
+  let f (proto, ext_port, int_addr, int_port) =    
+    (proto_of_int proto, ext_port, Ipaddr.V4.of_string_exn int_addr, int_port)
+  in
+  Array.map f (Raw.caml_interface_get_port_forwarding_rules iface)
+
 let add_port_forwarding_rule {iface;_} protocol ext_port ip int_port =
-  Raw.caml_vmnet_interface_add_port_forwarding_rule iface protocol ext_port (Ipaddr.V4.to_string ip) int_port
+  Raw.caml_vmnet_interface_add_port_forwarding_rule iface (int_of_proto protocol) ext_port (Ipaddr.V4.to_string ip) int_port
   |> function
   | 1000 -> () (* VMNET_SUCCESS *)
   | err -> raise (Error (error_of_int err))
 
-let add_tcp_port_forwarding_rule t =
-  add_port_forwarding_rule t 6
-
-let add_udp_port_forwarding_rule t =
-  add_port_forwarding_rule t 17
-
-let add_icmp_port_forwarding_rule t =
-  add_port_forwarding_rule t 1
+let remove_port_forwarding_rule {iface;_} protocol ext_port =
+  Raw.caml_vmnet_interface_remove_port_forwarding_rule iface (int_of_proto protocol) ext_port
+  |> function
+  | 1000 -> () (* VMNET_SUCCESS *)
+  | err -> raise (Error (error_of_int err))
