@@ -39,6 +39,7 @@
 #include <vmnet/vmnet.h>
 #include <pthread.h>
 #include <availability.h>
+#include <uuid/uuid.h>
 
 static struct custom_operations vmnet_state_ops = {
   "org.openmirage.vmnet.vmnet_state",
@@ -84,10 +85,10 @@ alloc_vmnet_state(interface_ref i)
 }
 
 CAMLprim value
-caml_init_vmnet(value v_mode, value v_iface)
+caml_init_vmnet(value v_mode, value v_iface, value v_existing_uuid)
 {
-  CAMLparam2(v_mode, v_iface);
-  CAMLlocal3(v_iface_ref,v_res,v_mac);
+  CAMLparam3(v_mode, v_iface, v_existing_uuid);
+  CAMLlocal4(v_iface_ref, v_res, v_mac, v_uuid);
   xpc_object_t interface_desc = xpc_dictionary_create(NULL, NULL, 0);
   xpc_dictionary_set_uint64(interface_desc, vmnet_operation_mode_key, Int_val(v_mode));
 
@@ -99,8 +100,12 @@ caml_init_vmnet(value v_mode, value v_iface)
   #endif
 
   uuid_t uuid;
-  uuid_generate_random(uuid);
+  memcpy(&uuid, Bytes_val(v_existing_uuid), sizeof(uuid_t));
+  if (uuid_is_null(uuid) == 1) {
+    uuid_generate_random(uuid);  
+  }
   xpc_dictionary_set_uuid(interface_desc, vmnet_interface_id_key, uuid);
+
   __block interface_ref iface = NULL;
   __block vmnet_return_t iface_status = 0;
   __block unsigned char *mac = malloc(6);
@@ -137,11 +142,13 @@ caml_init_vmnet(value v_mode, value v_iface)
   v_iface_ref = alloc_vmnet_state(iface);
   v_mac = caml_alloc_string(6);
   memcpy(String_val(v_mac),mac,6);
-  v_res = caml_alloc_tuple(4);
+  v_res = caml_alloc_tuple(5);
+  v_uuid = caml_alloc_initialized_string(sizeof(uuid_t), (char *)uuid);
   Field(v_res,0) = v_iface_ref;
   Field(v_res,1) = v_mac;
   Field(v_res,2) = Val_int(mtu);
   Field(v_res,3) = Val_int(max_packet_size);
+  Field(v_res,4) = v_uuid;
   CAMLreturn(v_res);
 }
 

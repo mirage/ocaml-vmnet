@@ -1,3 +1,3 @@
 (executables
  (names vmnet_listen vmnet_write vmnet_list_shared vmnet_fw_test)
- (libraries vmnet charrua-client arp ethernet))
+ (libraries vmnet charrua-client arp ethernet uuidm))

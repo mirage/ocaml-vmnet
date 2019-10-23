@@ -68,9 +68,11 @@ exception Permission_denied
    until packets do arrive. *)
 exception No_packets_waiting [@@deriving sexp]
 
-(** [init ?mode] will initialise a fresh vmnet interface, defaulting to
-    {!Shared_mode} for the output. Raises {!Error} if something goes wrong. *)
-val init : ?mode:mode -> unit -> t
+(** [init ?mode ?uuid] will initialise a vmnet interface, defaulting to
+    {!Shared_mode} for the output. UUID is randomly generated if not specified. 
+    Subsequent calls to [init] with the same UUID will provide an interface with
+    the same configuration. Raises {!Error} if something goes wrong. *)
+val init : ?mode:mode -> ?uuid:Uuidm.t-> unit -> t
 
 (** [mac t] will return the MAC address bound to the guest network interface. *)
 val mac : t -> Macaddr.t
@@ -78,6 +80,9 @@ val mac : t -> Macaddr.t
 (** [mtu t] will return the Maximum Transmission Unit (MTU) bound to the
     guest network interface. *)
 val mtu : t -> int
+
+(** [uuid t] will return the UUID identifying this Vmnet interface. *)
+val uuid : t -> Uuidm.t
 
 (** [max_packet_size t] will return the maximum allowed packet buffer that can
     be passed to {!write}.  Exceeding this will raise {!Packet_too_big} from

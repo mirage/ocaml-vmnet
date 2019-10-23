@@ -83,6 +83,7 @@ let _ =
   (* init vmnet interface *)
   print_endline "Calling Vmnet.init ()";
   let vmnet_t = Vmnet.init ~mode:Shared_mode () in
+  Printf.printf "Vmnet interface UUID is %s\n" (Uuidm.to_string (Vmnet.uuid vmnet_t));
   let () = Vmnet.set_event_handler vmnet_t in
 
   (* get DHCP lease *)

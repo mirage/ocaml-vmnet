@@ -27,9 +27,10 @@ module Raw = struct
     mac: string;
     mtu: int;
     max_packet_size: int;
+    uuid : string;
   }
 
-  external init : int -> string -> t = "caml_init_vmnet"
+  external init : int -> string -> string -> t = "caml_init_vmnet"
   external set_event_handler : interface_ref -> unit = "caml_set_event_handler"
   external wait_for_event : interface_ref -> unit = "caml_wait_for_event"
   external caml_vmnet_read : interface_ref -> buf -> int -> int -> int = "caml_vmnet_read"
@@ -104,15 +105,17 @@ type t = {
   mtu: int;
   mac: Macaddr_sexp.t;
   max_packet_size: int;
+  uuid: Uuidm.t sexp_opaque;
 } [@@deriving sexp_of]
 
 let mac {mac; _} = mac
 let mtu {mtu; _} = mtu
 let max_packet_size {max_packet_size; _} = max_packet_size
+let uuid {uuid; _} = uuid
 
 let iface_num = ref 0
 
-let init ?(mode = Shared_mode) () =
+let init ?(mode = Shared_mode) ?(uuid = Uuidm.nil) () =
   let mode, iface =
     match mode with
     | Host_mode -> (1000, "")
@@ -120,13 +123,16 @@ let init ?(mode = Shared_mode) () =
     | Bridged_mode iface -> (1002, iface)
   in
   try
-    let t = Raw.init mode iface in
+    let t = Raw.init mode iface (Uuidm.to_bytes uuid) in
     let name = Printf.sprintf "vmnet%d" !iface_num in
     incr iface_num;
     let mac = Macaddr.of_octets_exn t.Raw.mac in
     let mtu = t.Raw.mtu in
     let max_packet_size = t.Raw.max_packet_size in
-    { iface=t.Raw.iface; mac; mtu; max_packet_size; name }
+    let uuid = (match Uuidm.of_bytes t.uuid with
+      | None -> Uuidm.nil (* TODO: This shouldn't happen and could raise an error *)
+      | Some x -> x) in
+    { iface=t.Raw.iface; mac; mtu; max_packet_size; name; uuid }
   with 
     | Raw.Return_code r -> if r = 1001 && Unix.geteuid() <> 0
 			   then raise Permission_denied
