@@ -29,7 +29,8 @@
     configuration via DHCP). *)
 type mode = Vmnet.mode =
  | Host_mode
- | Shared_mode [@@deriving sexp]
+ | Shared_mode
+ | Bridged_mode of string [@@deriving sexp]
 
 (** [error] represents hard failures from the underlying vmnet functions. *)
 type error = Vmnet.error =
@@ -79,3 +80,26 @@ val read : t -> Cstruct.t -> Cstruct.t Lwt.t
    normally not block, but the vmnet interface isnt clear on whether this might
    happen. *)
 val write : t -> Cstruct.t -> unit Lwt.t
+
+val shared_interface_list : unit -> string array
+
+(** [add_port_forwarding_rule t protocol external_port internal_addr
+   internal_port] will create a firewall forwarding rule for the specified
+   protocol, mapping the external_port to the internal_addr/internal_port on
+   the vmnet interface. Protocol is IPPROTO_TCP, IPROTO_UDP etc.*)
+val add_port_forwarding_rule : t -> int -> int -> Ipaddr.V4.t -> int -> unit Lwt.t
+
+(** [add_udp_port_forwarding_rule t external_port internal_addr
+   internal_port] will create a firewall forwarding rule for UDP traffic from
+   external_port to the internal_addr/internal_port on the vmnet interface. *)
+val add_udp_port_forwarding_rule : t -> int -> Ipaddr.V4.t -> int -> unit Lwt.t
+
+(** [add_tcp_port_forwarding_rule t external_port internal_addr
+   internal_port] will create a firewall forwarding rule for TCP traffic from
+   external_port to the internal_addr/internal_port on the vmnet interface. *)
+val add_tcp_port_forwarding_rule : t -> int -> Ipaddr.V4.t -> int -> unit Lwt.t
+
+(** [add_icmp_port_forwarding_rule t external_port internal_addr
+   internal_port] will create a firewall forwarding rule for ICMP traffic from
+   external_port to the internal_addr/internal_port on the vmnet interface. *)
+val add_icmp_port_forwarding_rule : t -> int -> Ipaddr.V4.t -> int -> unit Lwt.t

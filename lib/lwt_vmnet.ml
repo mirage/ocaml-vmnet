@@ -17,7 +17,7 @@
 open Lwt
 open Sexplib.Conv
 
-type mode = Vmnet.mode = Host_mode | Shared_mode [@@deriving sexp]
+type mode = Vmnet.mode = Host_mode | Shared_mode | Bridged_mode of string [@@deriving sexp]
 
 type error = Vmnet.error =
  | Failure
@@ -90,3 +90,22 @@ let write t c =
     return_unit
   with
   | Vmnet.Error err -> fail (Error err)
+
+let shared_interface_list = Vmnet.shared_interface_list
+
+let add_port_forwarding_rule t protocol ext_port ip int_port =
+  Lwt.catch
+  (fun () ->
+    return (Vmnet.add_port_forwarding_rule t.dev protocol ext_port ip int_port)
+  )(function
+  | Vmnet.Error err -> fail (Error err)
+  | e -> fail e)
+
+let add_tcp_port_forwarding_rule t =
+  add_port_forwarding_rule t 6
+
+let add_udp_port_forwarding_rule t =
+  add_port_forwarding_rule t 17
+
+let add_icmp_port_forwarding_rule t =
+  add_port_forwarding_rule t 1
