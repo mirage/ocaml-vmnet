@@ -30,7 +30,7 @@ module Raw = struct
     uuid : string;
   }
 
-  external init : int -> string -> string -> t = "caml_init_vmnet"
+  external init : int -> string -> string -> (string * string * string) option -> t = "caml_init_vmnet"
   external set_event_handler : interface_ref -> unit = "caml_set_event_handler"
   external wait_for_event : interface_ref -> unit = "caml_wait_for_event"
   external caml_vmnet_read : interface_ref -> buf -> int -> int -> int = "caml_vmnet_read"
@@ -74,6 +74,12 @@ let error_of_int =
   | 1008 -> Too_many_packets
   | err  -> Unknown err
 
+type ipv4_config = {
+    ipv4_start_address: Ipaddr_sexp.V4.t;
+    ipv4_end_address: Ipaddr_sexp.V4.t;
+    ipv4_netmask: Ipaddr_sexp.V4.t;
+} [@@deriving sexp]
+
 type mode =
   | Host_mode
   | Shared_mode
@@ -115,15 +121,24 @@ let uuid {uuid; _} = uuid
 
 let iface_num = ref 0
 
-let init ?(mode = Shared_mode) ?(uuid = Uuidm.nil) () =
+let init ?(mode = Shared_mode) ?(uuid = Uuidm.nil) ?ipv4_config () =
   let mode, iface =
     match mode with
     | Host_mode -> (1000, "")
     | Shared_mode -> (1001, "")
     | Bridged_mode iface -> (1002, iface)
   in
+  let ip_to_str ip = Ipaddr.V4.to_string ip in
+  let ipv4_config_str =
+    match ipv4_config with
+    | Some x -> Some ((ip_to_str x.ipv4_start_address),
+                      (ip_to_str x.ipv4_end_address),
+                      (ip_to_str x.ipv4_netmask))
+    | None -> None
+  in
   try
-    let t = Raw.init mode iface (Uuidm.to_bytes uuid) in
+    let t = Raw.init mode iface (Uuidm.to_bytes uuid) ipv4_config_str
+    in
     let name = Printf.sprintf "vmnet%d" !iface_num in
     incr iface_num;
     let mac = Macaddr.of_octets_exn t.Raw.mac in
@@ -133,7 +148,7 @@ let init ?(mode = Shared_mode) ?(uuid = Uuidm.nil) () =
       | None -> Uuidm.nil (* TODO: This shouldn't happen and could raise an error *)
       | Some x -> x) in
     { iface=t.Raw.iface; mac; mtu; max_packet_size; name; uuid }
-  with 
+  with
     | Raw.Return_code r -> if r = 1001 && Unix.geteuid() <> 0
 			   then raise Permission_denied
 			   else raise (Error (error_of_int r))
@@ -161,7 +176,7 @@ let shared_interface_list =
   Raw.caml_shared_interface_list
 
 let get_port_forwarding_rules {iface;_} =
-  let f (proto, ext_port, int_addr, int_port) =    
+  let f (proto, ext_port, int_addr, int_port) =
     (proto_of_int proto, ext_port, Ipaddr.V4.of_string_exn int_addr, int_port)
   in
   Array.map f (Raw.caml_interface_get_port_forwarding_rules iface)

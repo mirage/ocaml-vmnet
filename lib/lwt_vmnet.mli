@@ -23,15 +23,19 @@
     guest network interfaces in the host mode and to the native host.
     - {!Shared_mode} lets the guest network interface reach the Internet
     using a network address translator.
+    - {!Bridged_mode} creates a bridge with an existing physical interface
+    and lets the guest network interface connect directly to the network.
+    [shared_interface_list] can be used to get a list of interfaces that
+    support this mode (typically wired interfaces only).
 
     Note that in MacOS X Yosemite, {!Host_mode} also provides a NAT to the
     guest, but with the subnet and DNS options not set (so it has no way
     to communicate externally but can still retrieve host-local network
     configuration via DHCP). *)
-type mode = Vmnet.mode =
- | Host_mode
- | Shared_mode
- | Bridged_mode of string [@@deriving sexp]
+type mode =
+  | Host_mode
+  | Shared_mode
+  | Bridged_mode of string [@@deriving sexp]
 
 (** [proto] specifies protocol used in firewall rules. {!Other} can be
     used to add rules for undefined protocol types. *)
@@ -40,6 +44,14 @@ type proto = Vmnet.proto =
  | UDP
  | ICMP
  | Other of int [@@deriving sexp]
+
+(** [ipv4_config] contains the IPv4 configuration for shared and host mode
+    interfaces *)
+type ipv4_config = Vmnet.ipv4_config = {
+    ipv4_start_address: Ipaddr_sexp.V4.t;
+    ipv4_end_address: Ipaddr_sexp.V4.t;
+    ipv4_netmask: Ipaddr_sexp.V4.t;
+} [@@deriving sexp]
 
 (** [error] represents hard failures from the underlying vmnet functions. *)
 type error = Vmnet.error =
@@ -78,7 +90,7 @@ val max_packet_size: t -> int
 
 (** [init ?mode] will initialise a fresh vmnet interface, defaulting to
     {!Shared_mode} for the output. Raises {!Error} if something goes wrong. *)
-val init : ?mode:mode -> unit -> t Lwt.t
+val init : ?mode:mode -> ?uuid:Uuidm.t -> ?ipv4_config:ipv4_config -> unit -> t Lwt.t
 
 (** [read t buf] will read a network packet into the [buf] {!Cstruct.t} and
    return a fresh subview that represents the packet with the correct length

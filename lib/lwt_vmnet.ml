@@ -22,6 +22,12 @@ type mode = Vmnet.mode = Host_mode | Shared_mode | Bridged_mode of string [@@der
 
 type proto = Vmnet.proto = TCP | UDP | ICMP | Other of int [@@deriving sexp]
 
+type ipv4_config = Vmnet.ipv4_config = {
+    ipv4_start_address: Ipaddr_sexp.V4.t;
+    ipv4_end_address: Ipaddr_sexp.V4.t;
+    ipv4_netmask: Ipaddr_sexp.V4.t;
+} [@@deriving sexp]
+
 type error = Vmnet.error =
  | Failure
  | Mem_failure
@@ -60,10 +66,10 @@ let wait_for_event t =
     loop ()
   in loop ()
 
-let init ?(mode = Shared_mode) () =
+let init ?(mode = Shared_mode) ?(uuid = Uuidm.nil) ?ipv4_config () =
   Lwt.catch
   (fun () ->
-    let dev = Vmnet.init ~mode () in
+    let dev = Vmnet.init ~mode ~uuid ?ipv4_config () in
     let waiters = Lwt_dllist.create () in
     let t = { dev; waiters } in
     let _ = wait_for_event t in

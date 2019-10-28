@@ -20,12 +20,24 @@
 (** [t] contains the interface state for one vmnet interface. *)
 type t [@@deriving sexp_of]
 
+(** [ipv4_config] contains the IPv4 configuration for shared and host mode
+    interfaces *)
+type ipv4_config = {
+    ipv4_start_address: Ipaddr_sexp.V4.t;
+    ipv4_end_address: Ipaddr_sexp.V4.t;
+    ipv4_netmask: Ipaddr_sexp.V4.t;
+} [@@deriving sexp]
+
 (** [mode] controls the level of sharing exposed to the vmnet interface.
 
     - {!Host_mode} lets the guest network interface communicate with other
     guest network interfaces in the host mode and to the native host.
     - {!Shared_mode} lets the guest network interface reach the Internet
     using a network address translator.
+    - {!Bridged_mode} creates a bridge with an existing physical interface
+    and lets the guest network interface connect directly to the network.
+    [shared_interface_list] can be used to get a list of interfaces that
+    support this mode (typically wired interfaces only).
 
     Note that in MacOS X Yosemite, {!Host_mode} also provides a NAT to the
     guest, but with the subnet and DNS options not set (so it has no way
@@ -68,11 +80,19 @@ exception Permission_denied
    until packets do arrive. *)
 exception No_packets_waiting [@@deriving sexp]
 
-(** [init ?mode ?uuid] will initialise a vmnet interface, defaulting to
-    {!Shared_mode} for the output. UUID is randomly generated if not specified. 
-    Subsequent calls to [init] with the same UUID will provide an interface with
-    the same configuration. Raises {!Error} if something goes wrong. *)
-val init : ?mode:mode -> ?uuid:Uuidm.t-> unit -> t
+(** [init ?mode ?uuid ?ipv4_config] will initialise a vmnet interface,
+    defaulting to {!Shared_mode} for the output. UUID is randomly generated if
+    not specified. Subsequent calls to [init] with the same UUID will provide
+    an interface with the same MAC address allowing DHCP addresses to be
+    re-requested.
+
+    An IP address range can optionally be specified for shared and host mode
+    interfaces, with the start address becoming the gateway address. Addresses
+    matching the netmask outside the start/end range can be used for static
+    allocation. Only IP-addresses in the private range (RFC 1918) are accepted.
+
+    Raises {!Error} if something goes wrong. *)
+val init : ?mode:mode -> ?uuid:Uuidm.t -> ?ipv4_config:ipv4_config -> unit -> t
 
 (** [mac t] will return the MAC address bound to the guest network interface. *)
 val mac : t -> Macaddr.t

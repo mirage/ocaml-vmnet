@@ -59,6 +59,8 @@ struct vmnet_state {
 };
 
 #define Vmnet_state_val(v) (*((struct vmnet_state **) Data_custom_val(v)))
+#define Some_val(v) Field(v,0)
+#define Val_none Val_int(0)
 
 void
 caml_raise_api_not_supported () {
@@ -85,17 +87,29 @@ alloc_vmnet_state(interface_ref i)
 }
 
 CAMLprim value
-caml_init_vmnet(value v_mode, value v_iface, value v_existing_uuid)
+caml_init_vmnet(value v_mode, value v_iface, value v_existing_uuid,
+		value v_ipv4_config)
 {
-  CAMLparam3(v_mode, v_iface, v_existing_uuid);
+  CAMLparam4(v_mode, v_iface, v_existing_uuid, v_ipv4_config);
   CAMLlocal4(v_iface_ref, v_res, v_mac, v_uuid);
   xpc_object_t interface_desc = xpc_dictionary_create(NULL, NULL, 0);
   xpc_dictionary_set_uint64(interface_desc, vmnet_operation_mode_key, Int_val(v_mode));
 
+  //xpc_dictionary_set_bool(interface_desc, vmnet_allocate_mac_address_key, false);
+
   #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
   if (Int_val(v_mode) == VMNET_BRIDGED_MODE) {
 	  // If bridged mode is set we have to supply the interface as a string
-	  xpc_dictionary_set_string(interface_desc, vmnet_shared_interface_name_key, String_val(v_iface));
+	  xpc_dictionary_set_string(interface_desc,
+			  vmnet_shared_interface_name_key,
+			  String_val(v_iface));
+  }
+  if ((v_ipv4_config != Val_none) && (Int_val(v_mode) == VMNET_HOST_MODE ||
+		  Int_val(v_mode) == VMNET_SHARED_MODE)) {
+    value config = Some_val(v_ipv4_config);
+    xpc_dictionary_set_string(interface_desc, vmnet_start_address_key, String_val(Field(config, 0)));
+    xpc_dictionary_set_string(interface_desc, vmnet_end_address_key, String_val(Field(config, 1)));
+    xpc_dictionary_set_string(interface_desc, vmnet_subnet_mask_key, String_val(Field(config, 2)));
   }
   #endif
 
@@ -123,10 +137,16 @@ caml_init_vmnet(value v_mode, value v_iface, value v_existing_uuid)
       }
       //printf("mac desc: %s\n", xpc_copy_description(xpc_dictionary_get_value(interface_param, vmnet_mac_address_key)));
       const char *macStr = xpc_dictionary_get_string(interface_param, vmnet_mac_address_key);
-      unsigned char lmac[6];
-      if (sscanf(macStr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &lmac[0], &lmac[1], &lmac[2], &lmac[3], &lmac[4], &lmac[5]) != 6)
-        errx(1, "Unexpected MAC address received from vmnet");
-      memcpy(mac, lmac, 6);
+      if (macStr != NULL) {
+        unsigned char lmac[6];
+        if (sscanf(macStr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &lmac[0], &lmac[1], &lmac[2], &lmac[3], &lmac[4], &lmac[5]) != 6)
+          errx(1, "Unexpected MAC address received from vmnet");
+        memcpy(mac, lmac, 6);
+      } else {
+        // Mac key is not set if vmnet_allocate_mac_address_key is false
+        memset(mac, 0, 6); // 00:00:00:00:00:00
+      }
+      
       mtu = xpc_dictionary_get_uint64(interface_param, vmnet_mtu_key);
       max_packet_size = xpc_dictionary_get_uint64(interface_param, vmnet_max_packet_size_key);
       dispatch_semaphore_signal(iface_created);
