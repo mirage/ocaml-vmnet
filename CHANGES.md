@@ -1,3 +1,13 @@
+## unreleased
+
+* Add support for macOS 10.15 bridge mode (#32 @magnuss)
+* Add support for macOS 10.15 firewall rules (#32 @magnuss)
+* Add support for macOS 10.15 custom IPv4 configuration (#33 @magnuss)
+* Add support for reusing the same UUID between interfaces (#33 @magnuss)
+* Add examples for setting up firewall rules, custom IPv4 config and listing
+  shared interfaces (#32 #33 @magnuss)
+* Remove {build} from dune in opam-file (#31 @magnuss)
+
 ## v1.5.1 (2019-09-14)
 * Report errors correctly from read/write (#29 @magnuss)
 * Remove deprecated calls to `Cstruct.set_len` (#29 @magnuss)
