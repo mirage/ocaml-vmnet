@@ -77,12 +77,34 @@ let send_garp vmnet_t mac ip =
   Arp_packet.encode_into garp (Cstruct.sub arp_pkt Ethernet_wire.sizeof_ethernet Arp_packet.size);
   Vmnet.write vmnet_t arp_pkt
 
+let print_fw_rules vmnet_t =
+  print_endline "proto\text\tinternal ip\tint";
+  let rules = Vmnet.get_port_forwarding_rules vmnet_t in
+  Array.iter (fun (proto, ext_port, ip, int_port) ->
+        let proto_s =
+                Vmnet.(match proto with
+                | TCP -> "tcp"
+                | UDP -> "udp"
+                | ICMP -> "icmp"
+                | Other _ -> "other")
+        in
+        Printf.printf "%s\t%d\t%s\t%d\n" proto_s ext_port (Ipaddr.V4.to_string ip) int_port)
+        rules
+
 let _ =
   Random.self_init ();
 
   (* init vmnet interface *)
   print_endline "Calling Vmnet.init ()";
-  let vmnet_t = Vmnet.init ~mode:Shared_mode () in
+  let ipv4_config = Vmnet.({
+                 ipv4_start_address = (Ipaddr.V4.of_string_exn "192.168.123.1");
+                 ipv4_end_address = (Ipaddr.V4.of_string_exn "192.168.123.128");
+                 ipv4_netmask = (Ipaddr.V4.of_string_exn "255.255.255.0")
+        }) in
+  let vmnet_t = Vmnet.init ~mode:(Shared_mode) ~ipv4_config () in
+  Printf.printf "Vmnet interface UUID is %s\n" (Uuidm.to_string (Vmnet.uuid vmnet_t));
+  print_endline (Printf.sprintf "MAC is %s" (Macaddr.to_string (Vmnet.mac vmnet_t)));
+
   let () = Vmnet.set_event_handler vmnet_t in
 
   (* get DHCP lease *)
@@ -95,8 +117,17 @@ let _ =
   send_garp vmnet_t mac local_ip;
 
   (* set up port forwarding *)
-  print_endline "Creating a TCP forwarding rule for port 1234";
-  Vmnet.add_tcp_port_forwarding_rule vmnet_t 1234 local_ip 1234;
+  print_endline "Creating some forwarding rules...";
+  Vmnet.add_port_forwarding_rule vmnet_t TCP 1234 local_ip 1234;
+  Vmnet.add_port_forwarding_rule vmnet_t TCP 1235 local_ip 1235;
+  Vmnet.add_port_forwarding_rule vmnet_t TCP 1236 local_ip 1236;
+  Vmnet.add_port_forwarding_rule vmnet_t UDP 1234 local_ip 1234;
+
+  print_endline "Removing one rule";
+  Vmnet.remove_port_forwarding_rule vmnet_t UDP 1234;
+
+  print_endline "Active firewall rules:";
+  print_fw_rules vmnet_t;
 
   print_endline "Traffic sent to the external IP on TCP port 1234 should now appear here.";
 
@@ -130,4 +161,3 @@ let _ =
           listen_and_print ()
   in
   listen_and_print ()
-

@@ -1,5 +1,6 @@
 (*
  * Copyright (c) 2014 Anil Madhavapeddy <anil@recoil.org>
+ * Copyright (c) 2019 Magnus Skjegstad <magnus@skjegstad.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -18,6 +19,14 @@ open Lwt
 open Sexplib.Conv
 
 type mode = Vmnet.mode = Host_mode | Shared_mode | Bridged_mode of string [@@deriving sexp]
+
+type proto = Vmnet.proto = TCP | UDP | ICMP | Other of int [@@deriving sexp]
+
+type ipv4_config = Vmnet.ipv4_config = {
+    ipv4_start_address: Ipaddr_sexp.V4.t;
+    ipv4_end_address: Ipaddr_sexp.V4.t;
+    ipv4_netmask: Ipaddr_sexp.V4.t;
+} [@@deriving sexp]
 
 type error = Vmnet.error =
  | Failure
@@ -57,10 +66,10 @@ let wait_for_event t =
     loop ()
   in loop ()
 
-let init ?(mode = Shared_mode) () =
+let init ?(mode = Shared_mode) ?(uuid = Uuidm.nil) ?ipv4_config () =
   Lwt.catch
   (fun () ->
-    let dev = Vmnet.init ~mode () in
+    let dev = Vmnet.init ~mode ~uuid ?ipv4_config () in
     let waiters = Lwt_dllist.create () in
     let t = { dev; waiters } in
     let _ = wait_for_event t in
@@ -93,19 +102,28 @@ let write t c =
 
 let shared_interface_list = Vmnet.shared_interface_list
 
+let get_port_forwarding_rules t =
+  Lwt.catch
+  (fun () ->
+    return (Vmnet.get_port_forwarding_rules t.dev)
+  )(function
+  | Vmnet.Error err -> fail (Error err)
+  | e -> fail e)
+
 let add_port_forwarding_rule t protocol ext_port ip int_port =
   Lwt.catch
   (fun () ->
     return (Vmnet.add_port_forwarding_rule t.dev protocol ext_port ip int_port)
   )(function
   | Vmnet.Error err -> fail (Error err)
+  | Vmnet.Permission_denied -> fail Permission_denied
   | e -> fail e)
 
-let add_tcp_port_forwarding_rule t =
-  add_port_forwarding_rule t 6
-
-let add_udp_port_forwarding_rule t =
-  add_port_forwarding_rule t 17
-
-let add_icmp_port_forwarding_rule t =
-  add_port_forwarding_rule t 1
+let remove_port_forwarding_rule t protocol ext_port =
+  Lwt.catch
+  (fun () ->
+    return (Vmnet.remove_port_forwarding_rule t.dev protocol ext_port)
+  )(function
+  | Vmnet.Error err -> fail (Error err)
+  | Vmnet.Permission_denied -> fail Permission_denied
+  | e -> fail e)

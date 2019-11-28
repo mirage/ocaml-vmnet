@@ -1,5 +1,6 @@
 (*
  * Copyright (c) 2014 Anil Madhavapeddy <anil@recoil.org>
+ * Copyright (c) 2019 Magnus Skjegstad <magnus@skjegstad.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -22,15 +23,35 @@
     guest network interfaces in the host mode and to the native host.
     - {!Shared_mode} lets the guest network interface reach the Internet
     using a network address translator.
+    - {!Bridged_mode} creates a bridge with an existing physical interface
+    and lets the guest network interface connect directly to the network.
+    [shared_interface_list] can be used to get a list of interfaces that
+    support this mode (typically wired interfaces only).
 
     Note that in MacOS X Yosemite, {!Host_mode} also provides a NAT to the
     guest, but with the subnet and DNS options not set (so it has no way
     to communicate externally but can still retrieve host-local network
     configuration via DHCP). *)
-type mode = Vmnet.mode =
- | Host_mode
- | Shared_mode
- | Bridged_mode of string [@@deriving sexp]
+type mode =
+  | Host_mode
+  | Shared_mode
+  | Bridged_mode of string [@@deriving sexp]
+
+(** [proto] specifies protocol used in firewall rules. {!Other} can be
+    used to add rules for undefined protocol types. *)
+type proto = Vmnet.proto =
+ | TCP
+ | UDP
+ | ICMP
+ | Other of int [@@deriving sexp]
+
+(** [ipv4_config] contains the IPv4 configuration for shared and host mode
+    interfaces *)
+type ipv4_config = Vmnet.ipv4_config = {
+    ipv4_start_address: Ipaddr_sexp.V4.t;
+    ipv4_end_address: Ipaddr_sexp.V4.t;
+    ipv4_netmask: Ipaddr_sexp.V4.t;
+} [@@deriving sexp]
 
 (** [error] represents hard failures from the underlying vmnet functions. *)
 type error = Vmnet.error =
@@ -69,7 +90,7 @@ val max_packet_size: t -> int
 
 (** [init ?mode] will initialise a fresh vmnet interface, defaulting to
     {!Shared_mode} for the output. Raises {!Error} if something goes wrong. *)
-val init : ?mode:mode -> unit -> t Lwt.t
+val init : ?mode:mode -> ?uuid:Uuidm.t -> ?ipv4_config:ipv4_config -> unit -> t Lwt.t
 
 (** [read t buf] will read a network packet into the [buf] {!Cstruct.t} and
    return a fresh subview that represents the packet with the correct length
@@ -81,25 +102,21 @@ val read : t -> Cstruct.t -> Cstruct.t Lwt.t
    happen. *)
 val write : t -> Cstruct.t -> unit Lwt.t
 
+(** [shared_interface_list] will return an array of interface names that support
+   bridged mode. *)
 val shared_interface_list : unit -> string array
+
+(** [get_forwarding_rules t] returns an array of existing firewall rules. Each
+   rule contains the protocol number, internal port, internal IP address and
+   external port. *)
+val get_port_forwarding_rules : t -> (proto * int * Ipaddr.V4.t * int) array Lwt.t
 
 (** [add_port_forwarding_rule t protocol external_port internal_addr
    internal_port] will create a firewall forwarding rule for the specified
    protocol, mapping the external_port to the internal_addr/internal_port on
-   the vmnet interface. Protocol is IPPROTO_TCP, IPROTO_UDP etc.*)
-val add_port_forwarding_rule : t -> int -> int -> Ipaddr.V4.t -> int -> unit Lwt.t
+   the vmnet interface. *)
+val add_port_forwarding_rule : t -> proto -> int -> Ipaddr.V4.t -> int -> unit Lwt.t
 
-(** [add_udp_port_forwarding_rule t external_port internal_addr
-   internal_port] will create a firewall forwarding rule for UDP traffic from
-   external_port to the internal_addr/internal_port on the vmnet interface. *)
-val add_udp_port_forwarding_rule : t -> int -> Ipaddr.V4.t -> int -> unit Lwt.t
-
-(** [add_tcp_port_forwarding_rule t external_port internal_addr
-   internal_port] will create a firewall forwarding rule for TCP traffic from
-   external_port to the internal_addr/internal_port on the vmnet interface. *)
-val add_tcp_port_forwarding_rule : t -> int -> Ipaddr.V4.t -> int -> unit Lwt.t
-
-(** [add_icmp_port_forwarding_rule t external_port internal_addr
-   internal_port] will create a firewall forwarding rule for ICMP traffic from
-   external_port to the internal_addr/internal_port on the vmnet interface. *)
-val add_icmp_port_forwarding_rule : t -> int -> Ipaddr.V4.t -> int -> unit Lwt.t
+(** [remove_port_forwarding_rule t protocol external_port] removes an existing
+   firewall rule. *)
+val remove_port_forwarding_rule : t -> proto -> int -> unit Lwt.t

@@ -39,6 +39,7 @@
 #include <vmnet/vmnet.h>
 #include <pthread.h>
 #include <availability.h>
+#include <uuid/uuid.h>
 
 static struct custom_operations vmnet_state_ops = {
   "org.openmirage.vmnet.vmnet_state",
@@ -56,13 +57,16 @@ struct vmnet_state {
   int last_event; /* incremented when an event is received */
   int seen_event; /* last event we saw */
 };
+
 #define Vmnet_state_val(v) (*((struct vmnet_state **) Data_custom_val(v)))
+#define Some_val(v) Field(v,0)
+#define Val_none Val_int(0)
 
 void
 caml_raise_api_not_supported () {
   value *v_exc = caml_named_value("vmnet_api_not_supported");
   if (!v_exc)
-	caml_failwith("Vmnet.Error exception not registered");
+	  caml_failwith("Vmnet.Error exception not registered");
   caml_raise_constant(*v_exc);
 }
 
@@ -83,23 +87,39 @@ alloc_vmnet_state(interface_ref i)
 }
 
 CAMLprim value
-caml_init_vmnet(value v_mode, value v_iface)
+caml_init_vmnet(value v_mode, value v_iface, value v_existing_uuid,
+		value v_ipv4_config)
 {
-  CAMLparam2(v_mode, v_iface);
-  CAMLlocal3(v_iface_ref,v_res,v_mac);
+  CAMLparam4(v_mode, v_iface, v_existing_uuid, v_ipv4_config);
+  CAMLlocal4(v_iface_ref, v_res, v_mac, v_uuid);
   xpc_object_t interface_desc = xpc_dictionary_create(NULL, NULL, 0);
   xpc_dictionary_set_uint64(interface_desc, vmnet_operation_mode_key, Int_val(v_mode));
 
+  //xpc_dictionary_set_bool(interface_desc, vmnet_allocate_mac_address_key, false);
+
   #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
   if (Int_val(v_mode) == VMNET_BRIDGED_MODE) {
-	// If bridged mode is set we have to supply the interface as a string
-	xpc_dictionary_set_string(interface_desc, vmnet_shared_interface_name_key, String_val(v_iface));
+	  // If bridged mode is set we have to supply the interface as a string
+	  xpc_dictionary_set_string(interface_desc,
+			  vmnet_shared_interface_name_key,
+			  String_val(v_iface));
+  }
+  if ((v_ipv4_config != Val_none) && (Int_val(v_mode) == VMNET_HOST_MODE ||
+		  Int_val(v_mode) == VMNET_SHARED_MODE)) {
+    value config = Some_val(v_ipv4_config);
+    xpc_dictionary_set_string(interface_desc, vmnet_start_address_key, String_val(Field(config, 0)));
+    xpc_dictionary_set_string(interface_desc, vmnet_end_address_key, String_val(Field(config, 1)));
+    xpc_dictionary_set_string(interface_desc, vmnet_subnet_mask_key, String_val(Field(config, 2)));
   }
   #endif
 
   uuid_t uuid;
-  uuid_generate_random(uuid);
+  memcpy(&uuid, Bytes_val(v_existing_uuid), sizeof(uuid_t));
+  if (uuid_is_null(uuid) == 1) {
+    uuid_generate_random(uuid);  
+  }
   xpc_dictionary_set_uuid(interface_desc, vmnet_interface_id_key, uuid);
+
   __block interface_ref iface = NULL;
   __block vmnet_return_t iface_status = 0;
   __block unsigned char *mac = malloc(6);
@@ -117,10 +137,16 @@ caml_init_vmnet(value v_mode, value v_iface)
       }
       //printf("mac desc: %s\n", xpc_copy_description(xpc_dictionary_get_value(interface_param, vmnet_mac_address_key)));
       const char *macStr = xpc_dictionary_get_string(interface_param, vmnet_mac_address_key);
-      unsigned char lmac[6];
-      if (sscanf(macStr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &lmac[0], &lmac[1], &lmac[2], &lmac[3], &lmac[4], &lmac[5]) != 6)
-        errx(1, "Unexpected MAC address received from vmnet");
-      memcpy(mac, lmac, 6);
+      if (macStr != NULL) {
+        unsigned char lmac[6];
+        if (sscanf(macStr, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx", &lmac[0], &lmac[1], &lmac[2], &lmac[3], &lmac[4], &lmac[5]) != 6)
+          errx(1, "Unexpected MAC address received from vmnet");
+        memcpy(mac, lmac, 6);
+      } else {
+        // Mac key is not set if vmnet_allocate_mac_address_key is false
+        memset(mac, 0, 6); // 00:00:00:00:00:00
+      }
+      
       mtu = xpc_dictionary_get_uint64(interface_param, vmnet_mtu_key);
       max_packet_size = xpc_dictionary_get_uint64(interface_param, vmnet_max_packet_size_key);
       dispatch_semaphore_signal(iface_created);
@@ -136,11 +162,13 @@ caml_init_vmnet(value v_mode, value v_iface)
   v_iface_ref = alloc_vmnet_state(iface);
   v_mac = caml_alloc_string(6);
   memcpy(String_val(v_mac),mac,6);
-  v_res = caml_alloc_tuple(4);
+  v_res = caml_alloc_tuple(5);
+  v_uuid = caml_alloc_initialized_string(sizeof(uuid_t), (char *)uuid);
   Field(v_res,0) = v_iface_ref;
   Field(v_res,1) = v_mac;
   Field(v_res,2) = Val_int(mtu);
   Field(v_res,3) = Val_int(max_packet_size);
+  Field(v_res,4) = v_uuid;
   CAMLreturn(v_res);
 }
 
@@ -158,7 +186,7 @@ caml_shared_interface_list (void) {
     ret_array = caml_alloc(len, 0);
     for (int i = 0; i < len; i++) {
       const char *p = xpc_array_get_string(l, i);
-      Store_field(ret_array, 0, caml_copy_string(p));
+      Store_field(ret_array, i, caml_copy_string(p));
     }
 
     xpc_release(l);
@@ -273,6 +301,134 @@ caml_vmnet_interface_add_port_forwarding_rule(value v_vmnet, value v_protocol,
   dispatch_semaphore_t rule_added = dispatch_semaphore_create(0);
 
   vmnet_return_t res = vmnet_interface_add_port_forwarding_rule(iface, _protocol, _ext_port, _int_addr, _int_port,
+    ^(vmnet_return_t status) {
+      vmnet_status = status;
+      dispatch_semaphore_signal(rule_added);
+      return;
+    });
+
+  if (res != VMNET_SUCCESS) {
+    // Failed to queue vmnet command
+    CAMLreturn(Val_int(res));
+  }
+
+  // Wait for signal
+  dispatch_semaphore_wait(rule_added, DISPATCH_TIME_FOREVER);
+
+  CAMLreturn(Val_int(vmnet_status));
+
+  #else
+  caml_raise_api_not_supported();
+  CAMLreturn(Val_int(1000)); // Not reached
+  #endif
+}
+
+CAMLprim value
+caml_interface_get_port_forwarding_rules (value v_vmnet) {
+  CAMLparam1(v_vmnet);
+
+  #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
+  CAMLlocal3(ret_array, v_ip, v_ret);
+
+  struct vmnet_state *vms = Vmnet_state_val(v_vmnet);
+
+  interface_ref iface = vms->iref;
+  dispatch_semaphore_t op_complete = dispatch_semaphore_create(0);
+  __block xpc_object_t vmnet_rules = NULL;
+
+  vmnet_return_t res = vmnet_interface_get_port_forwarding_rules(iface,
+    ^(xpc_object_t rules) {
+      vmnet_rules = rules;
+      if (vmnet_rules != NULL)
+        xpc_retain(vmnet_rules);
+      dispatch_semaphore_signal(op_complete);
+      return;
+    });
+
+  // Failed to queue vmnet command
+  if (res != VMNET_SUCCESS) {
+    value *v_exc = caml_named_value("vmnet_raw_return");
+    if (!v_exc)
+      caml_failwith("Vmnet.Error exception not registered");
+    caml_raise_with_arg(*v_exc, Val_int(res));
+  }
+
+  // Wait for signal
+  dispatch_semaphore_wait(op_complete, DISPATCH_TIME_FOREVER);
+
+  if (vmnet_rules != NULL) {
+    size_t len = xpc_array_get_count(vmnet_rules);
+
+    if (len > 0)
+      ret_array = caml_alloc(len, 0);
+    else
+      ret_array = Atom(0);
+
+    for (int i = 0; i < len; i++) {
+      uint8_t _protocol;
+      uint16_t _external_port;
+      struct in_addr _internal_address;
+      uint16_t _internal_port;
+
+      res = vmnet_port_forwarding_rule_get_details(xpc_array_get_dictionary(vmnet_rules, i),
+                                                &_protocol,
+                                                &_external_port,
+                                                &_internal_address,
+                                                &_internal_port);
+
+      // Failed to decode rule
+      if (res != VMNET_SUCCESS) {
+        xpc_release(vmnet_rules);
+        value *v_exc = caml_named_value("vmnet_raw_return");
+        if (!v_exc)
+          caml_failwith("Vmnet.Error exception not registered");
+        caml_raise_with_arg(*v_exc, Val_int(res));
+      }
+
+      char ip_buf[INET_ADDRSTRLEN];
+      if (inet_ntop(AF_INET, &_internal_address, ip_buf, INET_ADDRSTRLEN) == NULL) {
+        caml_failwith("inet_ntop failed unexpectedly");
+      }
+
+      // Allocate ocaml values
+      v_ret = caml_alloc_tuple(4);
+      v_ip = caml_copy_string(ip_buf);
+      Field(v_ret, 0) = Val_int(_protocol);
+      Field(v_ret, 1) = Val_int(_external_port);
+      Field(v_ret, 2) = v_ip;
+      Field(v_ret, 3) = Val_int(_internal_port);
+      Store_field(ret_array, i, v_ret);
+    }
+
+    xpc_release(vmnet_rules);
+
+    CAMLreturn(ret_array);
+  } else {
+    CAMLreturn(Atom(0)); // Array empty
+  }
+
+  #else
+  caml_raise_api_not_supported();
+  CAMLreturn(Atom(0)); // Not reached
+  #endif
+}
+
+CAMLprim value
+caml_vmnet_interface_remove_port_forwarding_rule(value v_vmnet, value v_protocol,
+  value v_ext_port) {
+  CAMLparam3(v_vmnet, v_protocol, v_ext_port);
+
+  #if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101500
+  struct vmnet_state *vms = Vmnet_state_val(v_vmnet);
+
+  interface_ref iface = vms->iref;
+  uint8_t _protocol = Int_val(v_protocol);
+  uint16_t _ext_port = Int_val(v_ext_port);
+
+  __block vmnet_return_t vmnet_status = 0;
+  dispatch_semaphore_t rule_added = dispatch_semaphore_create(0);
+
+  vmnet_return_t res = vmnet_interface_remove_port_forwarding_rule(iface, _protocol, _ext_port,
     ^(vmnet_return_t status) {
       vmnet_status = status;
       dispatch_semaphore_signal(rule_added);
