@@ -54,3 +54,4 @@ outside world.
 
 Note the application must be configured to use DHCP: static IPs are not supported.
 """
+x-maintenance-intent: [ "(latest)" ]
